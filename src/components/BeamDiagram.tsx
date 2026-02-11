@@ -75,7 +75,9 @@ function ConcentratedDiagram({
   xRight: number;
   beamWidth: number;
 }) {
-  const xLoad = xLeft + beamWidth * (a / L);
+  const ratio =
+    L > 0 && Number.isFinite(Number(a)) ? Math.max(0, Math.min(1, Number(a) / L)) : 0;
+  const xLoad = xLeft + beamWidth * ratio;
   const pinPoints = `${xLeft},${BEAM_Y} ${xLeft - 8},${SUPPORT_BOTTOM_Y} ${xLeft + 8},${SUPPORT_BOTTOM_Y}`;
   const rollerPoints = `${xRight},${BEAM_Y} ${xRight - 8},${SUPPORT_BOTTOM_Y} ${xRight + 8},${SUPPORT_BOTTOM_Y}`;
   const arrowHeadSize = 6;
@@ -147,7 +149,10 @@ function CantileverConcentratedDiagram({
   xRight: number;
   beamWidth: number;
 }) {
-  const xLoad = xLeft + beamWidth * (a / L);
+  // 固定端(xLeft)から荷重までの距離 a を梁長 L で割った比。L=0 や a 未定義時は自由端に描画
+  const ratio =
+    L > 0 && Number.isFinite(Number(a)) ? Math.max(0, Math.min(1, Number(a) / L)) : 1;
+  const xLoad = xLeft + beamWidth * ratio;
   const arrowHeadSize = 6;
   const arrowHeadPoints = `${xLoad - arrowHeadSize},${BEAM_Y - arrowHeadSize} ${xLoad},${BEAM_Y} ${xLoad + arrowHeadSize},${BEAM_Y - arrowHeadSize}`;
   const dimAY = DIM_AB_Y;

@@ -352,6 +352,7 @@ function generateCantileverConcentrated(): BeamProblemConcentrated {
   let answer: number;
   let explanation: string;
   let wrongCandidates: number[];
+  let chosenWrong: number[];
 
   if (target === "M_max") {
     answer = r(P * a);
@@ -372,6 +373,7 @@ function generateCantileverConcentrated(): BeamProblemConcentrated {
       r(answer + 10),
       r(answer - 10),
     ].filter((v) => v > 0 && Math.abs(v - answer) > ANSWER_TOLERANCE);
+    chosenWrong = pickWrongChoices(wrongCandidates, answer, 3);
   } else {
     answer = r(P);
     explanation = [
@@ -380,16 +382,18 @@ function generateCantileverConcentrated(): BeamProblemConcentrated {
       `= ${answer} kN`,
     ].join("\n");
     wrongCandidates = [
-      r(P / 2),
+      r(P * L), // モーメント M = P×L と混同した誤答
+      r(P / 2), // 単純梁の反力 P/2 と混同した誤答
       r(P * a),
       r((P * a) / L),
       r(answer + 5),
       r(answer - 5),
       r(answer + 10),
     ].filter((v) => v > 0 && Math.abs(v - answer) > ANSWER_TOLERANCE);
+    const priorityVa = [r(P * L), r(P / 2)];
+    chosenWrong = pickWrongChoicesWithPriority(priorityVa, wrongCandidates, answer, 3);
   }
 
-  const chosenWrong = pickWrongChoices(wrongCandidates, answer, 3);
   const choices = shuffle([answer, ...chosenWrong]);
 
   return { type: "concentrated", structure: "cantilever", L, a, b, P, target, answer, choices, explanation };
