@@ -478,6 +478,7 @@ type CategoryStats = {
 };
 
 const HISTORY_STORAGE_KEY = "@beam-drill/history";
+const DIAGNOSTIC_REPORTS_STORAGE_KEY = "@beam-drill/diagnosticReports";
 
 type Mode = "normal" | "diagnostic";
 type QuestionSource = "normal" | "diagnostic";
@@ -666,12 +667,43 @@ export function useBeamProblem() {
     })();
   }, []);
 
+  // 診断レポートロード
+  useEffect(() => {
+    (async () => {
+      try {
+        const json = await AsyncStorage.getItem(DIAGNOSTIC_REPORTS_STORAGE_KEY);
+        if (!json) return;
+        const parsed = JSON.parse(json) as DiagnosticReport[];
+        if (Array.isArray(parsed)) {
+          setDiagnosticReports(parsed);
+          if (parsed.length > 0) {
+            setLastDiagnosticReport(parsed[0]);
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to load diagnostic reports", e);
+      }
+    })();
+  }, []);
+
   // 履歴保存
   const saveHistory = useCallback(async (logs: AnswerLog[]) => {
     try {
       await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(logs));
     } catch (e) {
       console.warn("Failed to save history", e);
+    }
+  }, []);
+
+  // 診断レポート保存
+  const saveDiagnosticReports = useCallback(async (reports: DiagnosticReport[]) => {
+    try {
+      await AsyncStorage.setItem(
+        DIAGNOSTIC_REPORTS_STORAGE_KEY,
+        JSON.stringify(reports)
+      );
+    } catch (e) {
+      console.warn("Failed to save diagnostic reports", e);
     }
   }, []);
 
@@ -882,7 +914,11 @@ export function useBeamProblem() {
           if (sessionTargetCount != null && updated.length >= sessionTargetCount) {
             const report = buildDiagnosticReport(updated, sessionId);
             setLastDiagnosticReport(report);
-            setDiagnosticReports((prevReports) => [report, ...prevReports]);
+            setDiagnosticReports((prevReports) => {
+              const next = [report, ...prevReports];
+              saveDiagnosticReports(next);
+              return next;
+            });
             // 回答し終えたので診断モードは一旦終了（画面側でレポート表示へ誘導）
             setMode("normal");
           }
@@ -890,7 +926,16 @@ export function useBeamProblem() {
         });
       }
     },
-    [currentQuestionStartTs, currentSource, isWeakMode, problem, saveHistory, sessionId, sessionTargetCount]
+    [
+      currentQuestionStartTs,
+      currentSource,
+      isWeakMode,
+      problem,
+      saveHistory,
+      saveDiagnosticReports,
+      sessionId,
+      sessionTargetCount,
+    ]
   );
 
   const goToNext = useCallback(() => {
