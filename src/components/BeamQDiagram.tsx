@@ -36,16 +36,17 @@ function getQSamplePoints(problem: BeamProblem): { x: number; Q: number }[] {
     const { L, a, b, P } = problem;
     const Va = (P * b) / L;
     const Vb = (P * a) / L;
-    for (let i = 0; i <= n; i++) {
-      const x = (i / n) * L;
-      if (x < a - 0.005 * L) points.push({ x, Q: Va });
-      else if (x > a + 0.005 * L) points.push({ x, Q: -Vb });
-    }
+    // 単純梁・集中荷重では、せん断力 Q は
+    // 左支点〜荷重点: Q = V_A（一定）
+    // 荷重点〜右支点: Q = -V_B（一定）
+    // となるため、厳密に「水平→垂直→水平」の折れ線だけを返す。
+    points.push({ x: 0, Q: Va });
     if (a > 0 && a < L) {
       points.push({ x: a, Q: Va });
       points.push({ x: a, Q: -Vb });
     }
-    return points.sort((p, q) => p.x - q.x || p.Q - q.Q);
+    points.push({ x: L, Q: -Vb });
+    return points;
   }
 
   if (problem.type === "distributed" && problem.structure === "simple") {
@@ -59,9 +60,19 @@ function getQSamplePoints(problem: BeamProblem): { x: number; Q: number }[] {
 
   if (problem.type === "concentrated" && problem.structure === "cantilever") {
     const { L, a, P } = problem;
-    for (let i = 0; i <= n; i++) {
-      const x = (i / n) * L;
-      points.push({ x, Q: x < a ? P : 0 });
+    // 片持ち梁・集中荷重では、せん断力 Q は
+    //  0 ≦ x < a: Q = P（一定）
+    //  a ≦ x ≦ L: Q = 0
+    // となる。集中荷重点で垂直に落ちるステップ関数になるよう、
+    // 端点と荷重点だけを明示的に返す。
+    points.push({ x: 0, Q: P });
+    if (a > 0 && a < L) {
+      points.push({ x: a, Q: P });
+      points.push({ x: a, Q: 0 });
+    } else {
+      // 荷重が自由端（a = L）の場合
+      points.push({ x: L, Q: P });
+      points.push({ x: L, Q: 0 });
     }
     return points;
   }
@@ -90,16 +101,22 @@ function getQSamplePoints(problem: BeamProblem): { x: number; Q: number }[] {
         points.push({ x, Q });
       }
     } else {
+      // 荷重がスパン内 (0 < a < L) の張り出し梁:
+      // 反力は単純梁と同じ: V_A = P(L−a)/L, V_B = Pa/L（上向き）
+      // せん断力は
+      //  0 ≦ x < a:   Q = V_A
+      //  a ≦ x < L:   Q = V_A − P
+      //  L ≦ x ≦ L+c: Q = 0
       const Va = (P * (L - a)) / L;
-      const Vb = (P * a) / L;
-      for (let i = 0; i <= n; i++) {
-        const x = (i / n) * total;
-        let Q: number;
-        if (x < a) Q = Va;
-        else if (x < L) Q = -Vb;
-        else Q = 0;
-        points.push({ x, Q });
+      // const Vb = (P * a) / L; // 釣り合いより V_A + V_B = P → V_A − P + V_B = 0
+
+      points.push({ x: 0, Q: Va });
+      if (a > 0 && a < L) {
+        points.push({ x: a, Q: Va });
+        points.push({ x: a, Q: Va - P });
       }
+      points.push({ x: L, Q: Va - P });
+      points.push({ x: L, Q: 0 });
     }
     return points;
   }
@@ -108,9 +125,14 @@ function getQSamplePoints(problem: BeamProblem): { x: number; Q: number }[] {
     const { L, w, overhangLength: c } = problem;
     const total = L + c;
     const Va = (w * (L * L - c * c)) / (2 * L);
+    const Vb = (w * (L + c) * (L + c)) / (2 * L);
     for (let i = 0; i <= n; i++) {
       const x = (i / n) * total;
-      const Q = x <= L ? Va - w * x : -w * (total - x);
+      // 張り出し梁の等分布では、
+      //  0 ≦ x < L:      Q(x) = V_A − w x
+      //  L ≦ x ≦ L + c: Q(x) = V_A + V_B − w x
+      // となる。x=L でのジャンプ量は V_B。
+      const Q = x < L ? Va - w * x : Va + Vb - w * x;
       points.push({ x, Q });
     }
     return points;

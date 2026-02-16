@@ -746,6 +746,7 @@ export function HomeScreen() {
                     <ColumnDiagram
                       supportType={problem.bucklingSupportType}
                       L={problem.L}
+                      target={problem.bucklingTarget}
                     />
                   ) : problem.problemCategory === "frame" &&
                     problem.frameL != null &&

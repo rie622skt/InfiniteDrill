@@ -127,7 +127,10 @@ export function generateBucklingLoad(difficulty: Difficulty): BeamProblem {
   const supportType = pickRandom(SUPPORT_TYPES_FOR_RATIO);
   const L = pickRandom(L_VALUES_M);
   const gamma = GAMMA[supportType];
-  const answer = roundToTwoDecimals(1 / (gamma * gamma));
+  // 浮動小数点誤差で 0.49 が 0.489999... になるのを防ぐため、
+  // 先に γ² を小数第2位で丸めてから 1/γ² を計算する。
+  const gammaSquared = roundToTwoDecimals(gamma * gamma);
+  const answer = roundToTwoDecimals(1 / gammaSquared);
 
   const isValidWrong = (v: number) => v > 0 && Math.abs(v - answer) > 0.01;
   const meaningfulValid = MEANINGFUL_RATIO_TRAPS.filter(isValidWrong);
@@ -173,7 +176,7 @@ export function generateBucklingLoad(difficulty: Difficulty): BeamProblem {
     "弾性座屈荷重はオイラーの公式 P_k = π²EI / l_k² で与えられます。",
     "同じ EI・同じ長さ L の柱では、P_k は l_k² に反比例するため、座屈長さ係数 γ を用いると P_k ∝ 1/γ² となります。",
     "両端ピン柱を基準（γ=1）とすると、この柱の座屈荷重は両端ピン柱の 1/γ² 倍です。",
-    `${supportLabel}では γ = ${gamma} なので、1/γ² = 1/${gamma * gamma} = ${answer} 倍です。`,
+    `${supportLabel}では γ = ${gamma} なので、1/γ² = 1/${gammaSquared} = ${answer} 倍です。`,
   ].join("\n");
 
   return {

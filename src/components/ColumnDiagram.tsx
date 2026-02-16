@@ -1,6 +1,6 @@
 import React from "react";
 import { View } from "react-native";
-import Svg, { Line, Polygon, Text } from "react-native-svg";
+import Svg, { Circle, Line, Polygon, Text } from "react-native-svg";
 import type { BucklingSupportType } from "../types";
 
 const PIXELS_PER_METER = 36;
@@ -17,6 +17,8 @@ const WALL_THICK = 14;
 type Props = {
   supportType: BucklingSupportType;
   L: number;
+  /** 座屈問題の種別: l_k（長さ） or P_ratio（荷重比）。どちらも圧縮荷重矢印を描く。 */
+  target?: "lk" | "P_ratio";
 };
 
 /** 上端・下端の支持を supportType から取得（描画順: 上 → 下） */
@@ -35,7 +37,7 @@ function getEnds(
   }
 }
 
-/** ピン支持（三角形） */
+/** ピン支持（白抜きの丸）。柱端での回転自由端を表す。 */
 function PinSymbol({
   x,
   y,
@@ -45,18 +47,10 @@ function PinSymbol({
   y: number;
   pointingDown: boolean;
 }) {
-  const h = SUPPORT_SIZE;
-  const w = SUPPORT_SIZE * 1.2;
-  const points = pointingDown
-    ? `${x},${y} ${x - w / 2},${y + h} ${x + w / 2},${y + h}`
-    : `${x},${y + h} ${x - w / 2},${y} ${x + w / 2},${y}`;
+  const r = SUPPORT_SIZE * 0.4;
+  const cy = pointingDown ? y + r + 2 : y - r - 2;
   return (
-    <Polygon
-      points={points}
-      fill="none"
-      stroke="#333"
-      strokeWidth={2}
-    />
+    <Circle cx={x} cy={cy} r={r} fill="#fff" stroke="#333" strokeWidth={2} />
   );
 }
 
@@ -106,7 +100,7 @@ function FixedSymbol({
 }
 
 /** 柱の図（支持条件・長さ L・EI 表示）。縦長でスマホに収まる viewBox。 */
-export function ColumnDiagram({ supportType, L }: Props) {
+export function ColumnDiagram({ supportType, L, target }: Props) {
   const columnHeight = L * PIXELS_PER_METER;
   const totalHeight = MARGIN_TOP + columnHeight + MARGIN_BOTTOM;
   const totalWidth = COLUMN_CX + MARGIN_RIGHT;
@@ -180,6 +174,33 @@ export function ColumnDiagram({ supportType, L }: Props) {
         >
           L = {L} m
         </Text>
+
+        {/* 圧縮荷重矢印（座屈問題で共通）。P_ratio では P_k、l_k では P を表示。 */}
+        {target && (
+          <>
+            <Line
+              x1={COLUMN_CX}
+              y1={yTop - 18}
+              x2={COLUMN_CX}
+              y2={yTop - 2}
+              stroke="#333"
+              strokeWidth={2}
+            />
+            <Polygon
+              points={`${COLUMN_CX},${yTop - 2} ${COLUMN_CX - 4},${yTop - 10} ${COLUMN_CX + 4},${yTop - 10}`}
+              fill="#333"
+            />
+            <Text
+              x={COLUMN_CX + 14}
+              y={yTop - 10}
+              fill="#333"
+              fontSize={12}
+              textAnchor="start"
+            >
+              {target === "P_ratio" ? "P_k" : "P"}
+            </Text>
+          </>
+        )}
 
         {/* EI 表示（柱の左側） */}
         <Text

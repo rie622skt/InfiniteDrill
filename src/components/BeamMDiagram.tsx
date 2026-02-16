@@ -6,8 +6,11 @@ import type { BeamProblem } from "../types";
 const PIXELS_PER_METER = 30;
 const MARGIN_H = 40;
 const CHART_HEIGHT = 56;
-const ZERO_Y = 12;
+// ZERO_Y は図のベースライン（M=0）の Y 座標。
+// |M| が最大のとき ZERO_Y ± MAX_M_HEIGHT の範囲に収まるよう、
+// ZERO_Y は必ず MAX_M_HEIGHT より十分下にとり、上端に余白を確保する。
 const MAX_M_HEIGHT = 44;
+const ZERO_Y = MAX_M_HEIGHT + 24; // 68（上端とのマージンを増やして欠けを防ぐ）
 
 /** 梁問題かどうか（解説で M図・Q図を表示する対象）。BeamMDiagram/BeamQDiagram と同一条件。 */
 export function isBeamProblemWithDiagram(p: BeamProblem): boolean {
