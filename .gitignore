@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# Cursor IDE
+.cursor/
+
 # Expo
 .expo/
 dist/
