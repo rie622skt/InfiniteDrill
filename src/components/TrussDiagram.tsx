@@ -110,9 +110,9 @@ function SimpleTriangleTruss({
         points={`${apexX},${apexY + NODE_R + ARROW_H + 4} ${apexX - ARROW_W},${apexY + NODE_R + ARROW_H} ${apexX + ARROW_W},${apexY + NODE_R + ARROW_H}`}
         fill="#333"
       />
-      {/* 荷重ラベル: 矢印の直下。Webは描画差で被りやすいのでさらに右に */}
+      {/* 荷重ラベル: 矢印の直下。右にずらして矢印と揃える */}
       <Text
-        x={apexX + (Platform.OS === "web" ? -2 : -8)}
+        x={apexX + 28}
         y={apexY + NODE_R + ARROW_H + 26}
         fill="#333"
         fontSize={16}
@@ -150,7 +150,7 @@ function SimpleTriangleTruss({
         stroke="#333"
         strokeWidth={1}
       />
-      {/* 寸法: スパン 2L */}
+      {/* 寸法: スパン 2L（2L= ラベルを右にずらして見やすく） */}
       <Line
         x1={leftX}
         y1={baseY + SUPPORT_H + 12}
@@ -162,7 +162,7 @@ function SimpleTriangleTruss({
       <Line x1={leftX} y1={baseY + SUPPORT_H + 12 - DIM_TICK} x2={leftX} y2={baseY + SUPPORT_H + 12 + DIM_TICK} stroke="#555" strokeWidth={1} />
       <Line x1={rightX} y1={baseY + SUPPORT_H + 12 - DIM_TICK} x2={rightX} y2={baseY + SUPPORT_H + 12 + DIM_TICK} stroke="#555" strokeWidth={1} />
       <Text
-        x={(leftX + rightX) / 2}
+        x={(leftX + rightX) / 2 + 36}
         y={baseY + SUPPORT_H + 12 + 18}
         fill="#555"
         fontSize={16}
@@ -331,8 +331,8 @@ function ZeroMemberTruss({
       />
       {isTarget && (
         <Text
-          x={(lNodeX + rightX) / 2 - 14}
-          y={(lNodeY + baseY) / 2}
+          x={(lNodeX + rightX) / 2 + 8}
+          y={(lNodeY + baseY) / 2 - 14}
           fill="#e65100"
           fontSize={16}
           textAnchor="middle"
