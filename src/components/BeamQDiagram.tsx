@@ -79,10 +79,14 @@ function getQSamplePoints(problem: BeamProblem): { x: number; Q: number }[] {
     const { L, P, a, overhangLength: c } = problem;
     const total = L + c;
     if (a >= L) {
-      const Va = (P * c) / L;
+      // 自由端荷重（a = L + c）のときの反力:
+      // V_A = -P c / L（下向き）, V_B = P(L + c)/L（上向き）
+      const Va = -(P * c) / L;
+      const Vb = (P * (L + c)) / L;
       for (let i = 0; i <= n; i++) {
         const x = (i / n) * total;
-        const Q = x < L ? Va : -P;
+        // せん断力: スパン内は Q = V_A（負）、張り出し部は Q = V_A + V_B = P（正）
+        const Q = x < L ? Va : Va + Vb;
         points.push({ x, Q });
       }
     } else {

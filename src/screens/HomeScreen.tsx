@@ -537,7 +537,8 @@ export function HomeScreen() {
                   </>
                 )}
               </View>
-              {/* 診断タブ内に難易度セレクタを配置（通常モードの難易度を設定） */}
+              {/* 診断開始前のみ難易度セレクタを表示（解いている最中は出さない） */}
+              {!hasActiveDiagnosticSession && (
               <View style={styles.difficultySection}>
                 <Text style={styles.difficultySectionTitle}>
                   通常モードの難易度を選択してください
@@ -628,6 +629,7 @@ export function HomeScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
+              )}
             </>
           ) : (
             <View style={styles.modeRow}>

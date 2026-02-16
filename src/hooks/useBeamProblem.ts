@@ -757,9 +757,12 @@ function generateOverhangConcentrated(): BeamProblemConcentrated {
     Vb = (P * a) / L;
     M_max = (P * a * bSpan) / L;
   } else {
+    // 自由端荷重（a = L + c）のとき、静定条件は以下:
+    // ΣM_A = 0: V_B×L = P×(L + c) → V_B = P(L + c)/L (>0)
+    // ΣV = 0: V_A + V_B − P = 0 → V_A = P − V_B = −P c / L （下向き反力）
     a = L + c;
-    Va = (P * c) / L;
-    Vb = (P * (L + c)) / L;
+    Va = -(P * c) / L;       // 支点Aの反力（下向きなので負）
+    Vb = (P * (L + c)) / L;  // 支点Bの反力（上向きなので正）
     M_max = P * c;
   }
 
@@ -767,7 +770,18 @@ function generateOverhangConcentrated(): BeamProblemConcentrated {
     Math.random() < 1 / 3 ? "Va" : Math.random() < 0.5 ? "Vb" : "M_max";
   const answer =
     target === "Va" ? r(Va) : target === "Vb" ? r(Vb) : r(M_max);
+  // 張り出し梁では、特に V_B を問うときに「きれいな値」になるようフィルタ。
+  // - すべてのターゲットで「きれいな小数」でなければリトライ
+  // - 自由端荷重（a = L + c）の場合は V_A, V_B も整数になる組み合わせに限定
   if (!isNiceOneDecimal(answer)) return generateOverhangConcentrated();
+  if (!loadInSpan) {
+    const isIntVa = Number.isInteger(Va);
+    const isIntVb = Number.isInteger(Vb);
+    const isIntM = Number.isInteger(M_max);
+    if (!isIntVa || !isIntVb || !isIntM) {
+      return generateOverhangConcentrated();
+    }
+  }
 
   let explanation: string;
   const wrongCandidates: number[] = [r(Va), r(Vb), r(M_max), r(P), r((P * L) / 4)].filter(

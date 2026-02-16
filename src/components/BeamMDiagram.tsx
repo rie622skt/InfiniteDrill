@@ -80,14 +80,26 @@ function getMSamplePoints(problem: BeamProblem): { x: number; M: number }[] {
   if (problem.type === "concentrated" && problem.structure === "overhang" && problem.overhangLength != null) {
     const { L, P, a, overhangLength: c } = problem;
     const total = L + c;
+
+    // a >= L: 自由端荷重パターン（支点A(0)–支点B(L)–張り出しc, 荷重は x = L + c）
+    // 反力: V_A = -P c / L, V_B = P(L + c) / L
     if (a >= L) {
-      const Va = (P * c) / L;
+      const Va = -(P * c) / L;
+      const Vb = (P * (L + c)) / L;
       for (let i = 0; i <= n; i++) {
         const x = (i / n) * total;
-        const M = x <= L ? Va * x : P * (total - x);
+        let M: number;
+        if (x <= L) {
+          // スパン内: M(x) = V_A × x（上端引張 → M < 0）
+          M = Va * x;
+        } else {
+          // 張り出し部: M(x) = V_A×x + V_B×(x − L)
+          M = Va * x + Vb * (x - L);
+        }
         points.push({ x, M });
       }
     } else {
+      // a < L: 荷重がスパン内にある張り出し梁（単純梁部分の式を流用）
       const Va = (P * (L - a)) / L;
       const Vb = (P * a) / L;
       for (let i = 0; i <= n; i++) {
