@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
 
 const FRAMES = [
-  require("../../untitled_0003.png"),
-  require("../../untitled_0004.png"),
+  require("../../assets/dragon-frame1.png"),
+  require("../../assets/dragon-frame2.png"),
 ];
 
 const FRAME_INTERVAL_MS = 200;
