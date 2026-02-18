@@ -114,18 +114,24 @@ function ConcentratedDiagram({
       >
         {P} kN
       </Text>
-      {/* a, b dimension */}
+      {/* a, b dimension（a は左区間の左寄せ、b は右区間の右寄せで左右に広げて重なりを防ぐ） */}
       <Line x1={xLeft} y1={DIM_AB_Y} x2={xRight} y2={DIM_AB_Y} stroke="#333" strokeWidth={1} strokeDasharray="4,2" />
       <Line x1={xLeft} y1={dimAbTickY1} x2={xLeft} y2={dimAbTickY2} stroke="#333" strokeWidth={1} />
       <Line x1={xLoad} y1={dimAbTickY1} x2={xLoad} y2={dimAbTickY2} stroke="#333" strokeWidth={1} />
-      <Text x={(xLeft + xLoad) / 2} y={DIM_AB_Y + DIM_LABEL_OFFSET} fill="#333" fontSize={12} textAnchor="middle">
+      <Text
+        x={xLeft + (xLoad - xLeft) * 0.25}
+        y={DIM_AB_Y + DIM_LABEL_OFFSET}
+        fill="#333"
+        fontSize={12}
+        textAnchor="middle"
+      >
         a = {a} m
       </Text>
       {!hideDimensionB && (
         <>
           <Line x1={xRight} y1={dimAbTickY1} x2={xRight} y2={dimAbTickY2} stroke="#333" strokeWidth={1} />
           <Text
-            x={(xLoad + xRight) / 2}
+            x={xLoad + (xRight - xLoad) * 0.75}
             y={DIM_AB_Y + DIM_LABEL_OFFSET}
             fill="#333"
             fontSize={12}

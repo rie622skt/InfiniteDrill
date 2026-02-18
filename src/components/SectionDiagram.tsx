@@ -7,6 +7,8 @@ type Props = {
   b: number;
   /** せい h [mm]（外寸） */
   h: number;
+  /** 断面形状: rectangle / hollow-rect / L-shape / H-shape / T-shape */
+  shape?: "rectangle" | "hollow-rect" | "L-shape" | "H-shape" | "T-shape";
   /** 中空断面の内側幅 [mm] */
   bInner?: number;
   /** 中空断面の内側せい [mm] */
@@ -27,19 +29,11 @@ const RECT_HEIGHT = 180;
 const EXTRA_LEFT_MARGIN = 32;
 const EXTRA_RIGHT_MARGIN = 88;
 
-const isHollow = (p: Props): boolean =>
-  p.bInner != null && p.hInner != null && p.bInner < p.b && p.hInner < p.h;
-
-const isLShape = (p: Props): boolean =>
-  p.b1 != null && p.b2 != null && p.b1 > 0 && p.b2 > 0 && p.b === p.b1 + p.b2;
-
-const isHShape = (p: Props): boolean =>
-  p.tf != null && p.tw != null && p.tf > 0 && p.tw > 0 && p.h > 2 * p.tf && !isHollow(p) && !isLShape(p);
-
-/** 長方形断面図（b, h と図心軸・寸法線を表示）。中空は外枠＋内穴。L形は横並び2矩形。H形はフランジ＋ウェブ。 */
-export function SectionDiagram({ b, h, bInner, hInner, b1, b2, tf, tw }: Props) {
+/** 長方形断面図（b, h と図心軸・寸法線を表示）。
+ * shape により、中空（hollow-rect）/ L形 / H形 / T形 を描画する。
+ */
+export function SectionDiagram({ b, h, shape, bInner, hInner, b1, b2, tf, tw }: Props) {
   const svgWidth = EXTRA_LEFT_MARGIN + RECT_WIDTH + MARGIN * 2 + EXTRA_RIGHT_MARGIN;
-  const svgHeight = RECT_HEIGHT + MARGIN * 2 + 24;
 
   const xLeft = MARGIN + EXTRA_LEFT_MARGIN;
   const xRight = xLeft + RECT_WIDTH;
@@ -52,9 +46,13 @@ export function SectionDiagram({ b, h, bInner, hInner, b1, b2, tf, tw }: Props) 
   const dimOffset = 12;
   const dimTick = 6;
 
-  const hollow = isHollow({ b, h, bInner, hInner });
-  const lshape = isLShape({ b, h, b1, b2 });
-  const hshape = isHShape({ b, h, bInner, hInner, b1, b2, tf, tw });
+  const hollow = shape === "hollow-rect" && bInner != null && hInner != null && bInner < b && hInner < h;
+  const lshape = shape === "L-shape" && b1 != null && b2 != null && b1 > 0 && b2 > 0 && b === b1 + b2;
+  const hshape =
+    shape === "H-shape" && tf != null && tw != null && tf > 0 && tw > 0 && h > 2 * tf && !hollow && !lshape;
+  const tshape =
+    shape === "T-shape" && tf != null && tw != null && tf > 0 && tw > 0 && h > tf && !hollow && !lshape;
+  const svgHeight = RECT_HEIGHT + MARGIN * 2 + 24 + (tshape ? 32 : 0);
   const innerW = hollow ? (bInner! / b) * RECT_WIDTH : 0;
   const innerH = hollow ? (hInner! / h) * RECT_HEIGHT : 0;
   const innerX = hollow ? xLeft + (RECT_WIDTH - innerW) / 2 : 0;
@@ -70,9 +68,30 @@ export function SectionDiagram({ b, h, bInner, hInner, b1, b2, tf, tw }: Props) 
   const twPx = hshape && tw != null ? (tw / b) * RECT_WIDTH : 0;
   const webLeft = hshape ? xLeft + (RECT_WIDTH - twPx) / 2 : 0;
 
+  const tfPxT = tshape && tf != null ? (tf / h) * RECT_HEIGHT : 0;
+  const hwPxT = tshape && tf != null ? ((h - tf) / h) * RECT_HEIGHT : 0;
+  const twPxT = tshape && tw != null ? (tw / b) * RECT_WIDTH : 0;
+  const webLeftT = tshape ? xLeft + (RECT_WIDTH - twPxT) / 2 : 0;
+  const y_g_mm_T =
+    tshape && tf != null && tw != null
+      ? (() => {
+          const hw = h - tf;
+          const Af = b * tf;
+          const Aw = tw * hw;
+          const A = Af + Aw;
+          const yF = tf / 2;
+          const yW = tf + hw / 2;
+          return (Af * yF + Aw * yW) / A;
+        })()
+      : 0;
+  const y_g_px_T = tshape ? yTop + (y_g_mm_T / h) * RECT_HEIGHT : 0;
+
+  const svgViewBox = tshape ? `-40 0 ${svgWidth + 40} ${svgHeight}` : undefined;
+  const svgWidthActual = tshape ? svgWidth + 40 : svgWidth;
+
   return (
     <View style={{ alignItems: "center" }}>
-      <Svg width={svgWidth} height={svgHeight}>
+      <Svg width={svgWidthActual} height={svgHeight} viewBox={svgViewBox}>
         {lshape ? (
           <>
             <Rect x={xLeft} y={yTop} width={w1} height={RECT_HEIGHT} fill="#fafafa" stroke="#333" strokeWidth={2} />
@@ -101,6 +120,176 @@ export function SectionDiagram({ b, h, bInner, hInner, b1, b2, tf, tw }: Props) 
             <Line x1={xRight + dimOffset - dimTick / 2} y1={yTop} x2={xRight + dimOffset + dimTick / 2} y2={yTop} stroke="#333" strokeWidth={1} />
             <Line x1={xRight + dimOffset - dimTick / 2} y1={yBottom} x2={xRight + dimOffset + dimTick / 2} y2={yBottom} stroke="#333" strokeWidth={1} />
             <Text x={xRight + dimOffset + 8} y={cy} fill="#333" fontSize={12} textAnchor="start">h = {h} mm</Text>
+          </>
+        ) : tshape ? (
+          <>
+            {/* フランジ（上部） */}
+            <Rect x={xLeft} y={yTop} width={RECT_WIDTH} height={tfPxT} fill="#fafafa" stroke="#333" strokeWidth={2} />
+            {/* ウェブ（中央） */}
+            <Rect
+              x={webLeftT}
+              y={yTop + tfPxT}
+              width={twPxT}
+              height={hwPxT}
+              fill="#f0f0f0"
+              stroke="#333"
+              strokeWidth={2}
+            />
+            {/* 中立軸（図心を通る水平軸。上から y_g_mm_T の位置） */}
+            <Line
+              x1={xLeft - 8}
+              y1={y_g_px_T}
+              x2={xRight + 8}
+              y2={y_g_px_T}
+              stroke="#1976d2"
+              strokeWidth={1}
+              strokeDasharray="6,4"
+            />
+            <Text x={xLeft - 12} y={y_g_px_T + 4} fill="#1976d2" fontSize={11} textAnchor="end">
+              中立軸
+            </Text>
+            {/* 寸法 b */}
+            <Line
+              x1={xLeft}
+              y1={yBottom + dimOffset}
+              x2={xRight}
+              y2={yBottom + dimOffset}
+              stroke="#333"
+              strokeWidth={1}
+              strokeDasharray="4,2"
+            />
+            <Line
+              x1={xLeft}
+              y1={yBottom + dimOffset - dimTick / 2}
+              x2={xLeft}
+              y2={yBottom + dimOffset + dimTick / 2}
+              stroke="#333"
+              strokeWidth={1}
+            />
+            <Line
+              x1={xRight}
+              y1={yBottom + dimOffset - dimTick / 2}
+              x2={xRight}
+              y2={yBottom + dimOffset + dimTick / 2}
+              stroke="#333"
+              strokeWidth={1}
+            />
+            <Text
+              x={(xLeft + xRight) / 2}
+              y={yBottom + dimOffset + 14}
+              fill="#333"
+              fontSize={12}
+              textAnchor="middle"
+            >
+              b = {b} mm
+            </Text>
+            {/* 寸法 h */}
+            <Line
+              x1={xRight + dimOffset}
+              y1={yTop}
+              x2={xRight + dimOffset}
+              y2={yBottom}
+              stroke="#333"
+              strokeWidth={1}
+              strokeDasharray="4,2"
+            />
+            <Line
+              x1={xRight + dimOffset - dimTick / 2}
+              y1={yTop}
+              x2={xRight + dimOffset + dimTick / 2}
+              y2={yTop}
+              stroke="#333"
+              strokeWidth={1}
+            />
+            <Line
+              x1={xRight + dimOffset - dimTick / 2}
+              y1={yBottom}
+              x2={xRight + dimOffset + dimTick / 2}
+              y2={yBottom}
+              stroke="#333"
+              strokeWidth={1}
+            />
+            <Text x={xRight + dimOffset + 8} y={y_g_px_T - 4} fill="#333" fontSize={12} textAnchor="start">
+              h = {h} mm
+            </Text>
+            {/* フランジ厚 t_f の寸法線（左側）。テキストはフランジ直下に配置して、上端で見切れないようにする */}
+            {tf != null && tfPxT > 0 && (
+              <>
+                <Line
+                  x1={xLeft - dimOffset}
+                  y1={yTop}
+                  x2={xLeft - dimOffset}
+                  y2={yTop + tfPxT}
+                  stroke="#333"
+                  strokeWidth={1}
+                  strokeDasharray="4,2"
+                />
+                <Line
+                  x1={xLeft - dimTick / 2 - dimOffset}
+                  y1={yTop}
+                  x2={xLeft + dimTick / 2 - dimOffset}
+                  y2={yTop}
+                  stroke="#333"
+                  strokeWidth={1}
+                />
+                <Line
+                  x1={xLeft - dimTick / 2 - dimOffset}
+                  y1={yTop + tfPxT}
+                  x2={xLeft + dimTick / 2 - dimOffset}
+                  y2={yTop + tfPxT}
+                  stroke="#333"
+                  strokeWidth={1}
+                />
+                <Text
+                  x={xLeft - dimOffset - 4}
+                  y={yTop + tfPxT / 2 + 4}
+                  fill="#333"
+                  fontSize={11}
+                  textAnchor="end"
+                >
+                  t_f = {tf} mm
+                </Text>
+              </>
+            )}
+            {/* ウェブ厚 t_w の寸法線（下側中央） */}
+            {tw != null && twPxT > 0 && (
+              <>
+                <Line
+                  x1={webLeftT}
+                  y1={yBottom + dimOffset + 26}
+                  x2={webLeftT + twPxT}
+                  y2={yBottom + dimOffset + 26}
+                  stroke="#333"
+                  strokeWidth={1}
+                  strokeDasharray="4,2"
+                />
+                <Line
+                  x1={webLeftT}
+                  y1={yBottom + dimOffset + 26 - dimTick / 2}
+                  x2={webLeftT}
+                  y2={yBottom + dimOffset + 26 + dimTick / 2}
+                  stroke="#333"
+                  strokeWidth={1}
+                />
+                <Line
+                  x1={webLeftT + twPxT}
+                  y1={yBottom + dimOffset + 26 - dimTick / 2}
+                  x2={webLeftT + twPxT}
+                  y2={yBottom + dimOffset + 26 + dimTick / 2}
+                  stroke="#333"
+                  strokeWidth={1}
+                />
+                <Text
+                  x={webLeftT + twPxT / 2}
+                  y={yBottom + dimOffset + 26 + 14}
+                  fill="#333"
+                  fontSize={11}
+                  textAnchor="middle"
+                >
+                  t_w = {tw} mm
+                </Text>
+              </>
+            )}
           </>
         ) : (
           <>

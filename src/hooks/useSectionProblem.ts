@@ -1,5 +1,10 @@
 import type { BeamProblem, Difficulty, ProblemCategory, ProblemTarget } from "../types";
 
+/** 値が整数（または浮動小数点誤差の範囲で整数）なら "="、そうでなければ "≒" を返す。解説の表記用。 */
+function eqOrApprox(value: number): "=" | "≒" {
+  return Math.abs(value - Math.round(value)) < 1e-9 ? "=" : "≒";
+}
+
 // 断面寸法の候補（問題バリエーション拡張用）
 // - 10 mm 刻みを基本に、実務でよく出るオーダーのサイズを網羅
 // - 後段の SECTION_PAIRS で「Z, I が整数になる組み合わせ」のみ採用する
@@ -72,6 +77,13 @@ const H_SHAPE_QUADS: readonly [number, number, number, number][] = (() => {
   }
   return quads.length > 0 ? quads : [[200, 240, 12, 8]];
 })();
+
+/** T形断面（上フランジ＋中央ウェブ）用の寸法 (b, h, tf, tw)。図心 y_g と図心軸まわり I がきれいな整数になるよう手動で選定。 */
+const T_SHAPE_QUADS: readonly [number, number, number, number][] = [
+  // b [mm], h [mm], tf [mm], tw [mm]
+  [180, 200, 20, 20],
+  [60, 80, 20, 20],
+];
 
 const SIMPLE_L_VALUES_M = [4, 6, 8] as const;
 /** 片持ちは L=2 を除外（集中 P×L と等分布 wL²/2 の数値衝突を防ぐ） */
@@ -168,12 +180,13 @@ function generateCentroidProblem(): BeamProblem {
   const chosenWrong = pickWrongChoices(wrongCandidates, x_g, 3);
   const choices = [...chosenWrong, x_g].sort((a2, b2) => a2 - b2);
 
+  const x_gExact = (A1 * x1 + A2 * x2) / (A1 + A2);
   const explanation = [
     "L形断面の図心は、各部分の面積とその図心位置から求めます。",
-    "左矩形: A1 = b1×h, 図心 x1 = b1/2",
-    "右矩形: A2 = b2×h, 図心 x2 = b1 + b2/2",
+    `左矩形: A1 = b1×h = ${b1}×${h} = ${A1} mm², 図心 x1 = b1/2 = ${x1} mm`,
+    `右矩形: A2 = b2×h = ${b2}×${h} = ${A2} mm², 図心 x2 = b1 + b2/2 = ${x2} mm`,
     "全体の図心 x_g = (A1×x1 + A2×x2) / (A1 + A2)",
-    `= (${A1}×${x1} + ${A2}×${x2}) / (${A1 + A2}) = ${x_g} mm`,
+    `x_g = (${A1}×${x1} + ${A2}×${x2}) / (${A1 + A2}) ${eqOrApprox(x_gExact)} ${x_g} mm`,
   ].join("\n");
 
   return {
@@ -247,15 +260,25 @@ function generateLShapeICentroidProblem(): BeamProblem {
   const chosenWrong = pickWrongChoices(wrongCandidates, answer, 3);
   const choices = [...chosenWrong, answer].sort((a, b) => a - b);
 
+  const x_gR = Math.round(x_g);
+  const d1_1 = d1.toFixed(1);
+  const d2_1 = d2.toFixed(1);
+  const I1R = Math.round(I1);
+  const I2R = Math.round(I2);
   const explanation = [
-    "L形断面の図心軸（x_g を通る鉛直軸）まわりの I は、平行軸の定理 I = I_g + A×d² で各部分を足し合わせます。",
-    "鉛直軸まわりなので各矩形の自軸まわり I_g は I_g = h×b³/12 です。",
-    "左矩形: I_g1 = h×b1³/12, 図心からの距離 d1 = x_g − b1/2 → I1 = I_g1 + A1×d1²",
-    "右矩形: I_g2 = h×b2³/12, 図心からの距離 d2 = (b1 + b2/2) − x_g → I2 = I_g2 + A2×d2²",
-    "全体の図心 x_g = (A1×x1 + A2×x2) / (A1 + A2)。",
-    `x_g = (${A1}×${x1} + ${A2}×${x2}) / (${A1 + A2}) = ${x_g} mm`,
-    `I1 = ${Math.round(I_g1)} + ${A1}×${d1.toFixed(1)}² = ${Math.round(I1)} mm⁴, I2 = ${Math.round(I_g2)} + ${A2}×${d2.toFixed(1)}² = ${Math.round(I2)} mm⁴`,
-    `図心軸まわりの I = I1 + I2 = ${answer} mm⁴`,
+    "L形断面の断面二次モーメント I は、左右の矩形に分け、平行軸の定理（I = I_0 + A×d²）を用いて求めます。",
+    "① 各部の面積と図心",
+    `左矩形: A1 = b1×h = ${b1}×${h} = ${A1} mm², 図心 x1 = b1/2 = ${x1} mm`,
+    `右矩形: A2 = b2×h = ${b2}×${h} = ${A2} mm², 図心 x2 = b1 + b2/2 = ${x2} mm`,
+    "② 全体の図心位置 x_g",
+    `x_g = (A1×x1 + A2×x2) / (A1+A2) = (${A1}×${x1} + ${A2}×${x2}) / (${A1 + A2}) ${eqOrApprox(x_g)} ${x_gR} mm`,
+    "③ 各部の自軸まわり断面二次モーメント I_0",
+    `左矩形: I_g1 = h×b1³/12 = ${Math.round(I_g1)} mm⁴, 右矩形: I_g2 = h×b2³/12 = ${Math.round(I_g2)} mm⁴`,
+    "④ 図心までの距離 d",
+    `d1 = x_g − x1 ${eqOrApprox(d1)} ${d1_1} mm, d2 = x2 − x_g ${eqOrApprox(d2)} ${d2_1} mm`,
+    "⑤ 全体 I の合成",
+    `I1 = I_g1 + A1×d1² = ${Math.round(I_g1)} + ${A1}×${d1_1}² = ${I1R} mm⁴, I2 = I_g2 + A2×d2² = ${Math.round(I_g2)} + ${A2}×${d2_1}² = ${I2R} mm⁴`,
+    `図心軸まわりの I = I1 + I2 = ${I1R} + ${I2R} = ${answer} mm⁴`,
   ].join("\n");
 
   return {
@@ -286,9 +309,10 @@ export function generateSectionPropertiesProblem(
   if (difficulty === "advanced") {
     const r = Math.random();
     if (r < 0.15) return generateLShapeICentroidProblem();
-    if (r < 0.4) return generateCentroidProblem();
-    if (HOLLOW_SECTION_QUADS.length > 0 && r < 0.7) return generateHollowSectionProblem();
-    if (H_SHAPE_QUADS.length > 0 && r < 0.9) return generateHShapeSectionProblem();
+    if (r < 0.35) return generateCentroidProblem();
+    if (HOLLOW_SECTION_QUADS.length > 0 && r < 0.6) return generateHollowSectionProblem();
+    if (H_SHAPE_QUADS.length > 0 && r < 0.8) return generateHShapeSectionProblem();
+    if (T_SHAPE_QUADS.length > 0) return generateTShapeSectionProblem();
   }
 
   const [b, h] = pickRandom(SECTION_PAIRS);
@@ -523,6 +547,123 @@ function generateHShapeSectionProblem(): BeamProblem {
   };
 }
 
+/** T形断面（上フランジ＋中央ウェブ）の図心 y_g または図心軸まわり I を求める問題を生成。 */
+function generateTShapeSectionProblem(): BeamProblem {
+  const [b, h, tf, tw] = pickRandom(T_SHAPE_QUADS);
+  const hw = h - tf;
+  const Af = b * tf;
+  const Aw = tw * hw;
+  const A = Af + Aw;
+  const yF = tf / 2;
+  const yW = tf + hw / 2;
+  const y_g = (Af * yF + Aw * yW) / A;
+  const y_g_rounded = roundToInteger(y_g);
+
+  const I_f = (b * tf * tf * tf) / 12;
+  const I_w = (tw * hw * hw * hw) / 12;
+  const dF = y_g - yF;
+  const dW = yW - y_g;
+  const I_total = I_f + Af * dF * dF + I_w + Aw * dW * dW;
+  const I_rounded = Math.round(I_total);
+
+  const askCentroid = Math.random() < 0.5;
+
+  if (askCentroid) {
+    const answer = y_g_rounded;
+    const wrongCandidates = [
+      h / 2,
+      tf / 2,
+      tf + hw / 2,
+      Math.round(answer * 0.5),
+      Math.round(answer * 1.5),
+      Math.round(h - answer),
+    ].filter((v) => v > 0 && isValidWrong(v, answer));
+    const chosenWrong = pickWrongChoices(wrongCandidates, answer, 3);
+    const choices = [...chosenWrong, answer].sort((a, b2) => a - b2);
+
+    const explanationLines = [
+      "T形断面の図心位置 y_g は、フランジとウェブを2つの長方形に分けて面積と図心位置から求めます。",
+      `フランジ: 幅 B = ${b} mm, 厚さ t_f = ${tf} mm → 面積 A_f = B×t_f = ${Af} mm², 図心 y_f = t_f/2 = ${yF} mm`,
+      `ウェブ: 厚さ t_w = ${tw} mm, 高さ h_w = h − t_f = ${hw} mm → 面積 A_w = t_w×h_w = ${Aw} mm², 図心 y_w = t_f + h_w/2 = ${yW} mm`,
+      "図心位置は y_g = (A_f×y_f + A_w×y_w) / (A_f + A_w) で求めます。",
+      `y_g = (${Af}×${yF} + ${Aw}×${yW}) / (${A}) ${eqOrApprox(y_g)} ${answer} mm`,
+    ];
+
+    return {
+      L: 0,
+      structure: "simple",
+      type: "concentrated",
+      target: "y_g" as ProblemTarget,
+      answer,
+      choices,
+      explanation: explanationLines.join("\n"),
+      sectionBmm: b,
+      sectionHmm: h,
+      sectionShape: "T-shape",
+      sectionTfMm: tf,
+      sectionTwMm: tw,
+      problemCategory: "section-properties" as ProblemCategory,
+      P: 0,
+      a: 0,
+      b: 0,
+    };
+  } else {
+    const answer = I_rounded;
+    const wrongCandidates = [
+      Math.round(I_f + I_w),
+      Math.round(I_total / 2),
+      Math.round(I_total * 2),
+      Math.round(I_total * 1.5),
+    ].filter((v) => v > 0 && isValidWrong(v, answer));
+    const chosenWrong = pickWrongChoices(wrongCandidates, answer, 3);
+    const choices = [...chosenWrong, answer].sort((a, b2) => a - b2);
+
+    const I_fR = Math.round(I_f);
+    const I_wR = Math.round(I_w);
+    const dF1 = dF.toFixed(1);
+    const dW1 = dW.toFixed(1);
+    const termF = Math.round(I_f + Af * dF * dF);
+    const termW = Math.round(I_w + Aw * dW * dW);
+    const dF2 = Math.round(dF * dF);
+    const dW2 = Math.round(dW * dW);
+    const explanationLines = [
+      "T形断面の断面二次モーメント I は、フランジとウェブに分け、平行軸の定理（I = I_0 + A×d²）を用いて求めます。",
+      "① 各部の面積と図心（上端基準）",
+      `フランジ: 面積 A_f = b×t_f = ${b}×${tf} = ${Af} mm², 図心 y_f = t_f/2 = ${tf}/2 = ${yF} mm`,
+      `ウェブ: 面積 A_w = t_w×h_w = t_w×(h−t_f) = ${tw}×${hw} = ${Aw} mm², 図心 y_w = t_f + h_w/2 = ${tf} + ${hw}/2 = ${yW} mm`,
+      "② 全体の図心位置 y_g",
+      `y_g = (A_f×y_f + A_w×y_w) / (A_f + A_w) = (${Af}×${yF} + ${Aw}×${yW}) / ${A} ${eqOrApprox(y_g)} ${y_g_rounded} mm`,
+      "③ 各部の自軸まわり断面二次モーメント I_0",
+      `フランジ: I_f = b×t_f³/12 = ${b}×${tf}³/12 ${eqOrApprox(I_f)} ${I_fR} mm⁴`,
+      `ウェブ: I_w = t_w×h_w³/12 = ${tw}×${hw}³/12 ${eqOrApprox(I_w)} ${I_wR} mm⁴`,
+      "④ 全体図心までの距離 d",
+      `フランジ: d_f = y_g − y_f ${eqOrApprox(dF)} ${dF1} mm`,
+      `ウェブ: d_w = y_w − y_g ${eqOrApprox(dW)} ${dW1} mm`,
+      "⑤ 全体 I の合成",
+      `I = (I_f + A_f×d_f²) + (I_w + A_w×d_w²) = (${I_fR} + ${Af}×${dF2}) + (${I_wR} + ${Aw}×${dW2}) = ${termF} + ${termW} ${eqOrApprox(I_total)} ${answer} mm⁴`,
+    ];
+
+    return {
+      L: 0,
+      structure: "simple",
+      type: "concentrated",
+      target: "I",
+      answer,
+      choices,
+      explanation: explanationLines.join("\n"),
+      sectionBmm: b,
+      sectionHmm: h,
+      sectionShape: "T-shape",
+      sectionTfMm: tf,
+      sectionTwMm: tw,
+      problemCategory: "section-properties" as ProblemCategory,
+      P: 0,
+      a: 0,
+      b: 0,
+    };
+  }
+}
+
 /** 曲げ応力度問題で使える (L,P,M_max,useCantilever,bmm,hmm) の候補。
  * 条件: σ = M_max×10^6/Z が整数（割り切れる）、片持ちは L≠2。 */
 function collectBendingStressCandidates(): {
@@ -694,23 +835,38 @@ function generateCombinedStressProblem(): BeamProblem {
   const chosenWrong = pickWrongChoicesAllowNegative(wrongCandidates, answer, 3);
   const choices = [...chosenWrong, answer].sort((a2, b2) => a2 - b2);
 
+  const N_N = N_kN * 1000;
+  const M_Nmm = Mmax * 1_000_000;
   const explanationLines: string[] = isCompression
     ? [
-        "複合応力度は σ = N/A ± M/Z です。圧縮側縁では σ = N/A − M/Z です。",
-        `σ_軸 = N/A = ${sigmaAxial} N/mm²`,
-        `σ_曲げ = M/Z = ${sigmaBend} N/mm²`,
+        "複合応力度は σ = N/A ± M/Z で求めます。圧縮側縁では σ = N/A − M/Z です。",
+        "① 軸力による応力度",
+        `N = ${N_kN} kN = ${N_kN} × 10^3 = ${N_N} N`,
+        `A = b×h = ${bmm}×${hmm} = ${A} mm²`,
+        `σ_軸 = N/A = ${N_N} / ${A} = ${sigmaAxial} N/mm²`,
+        "",
+        "② 曲げによる応力度",
+        `M_max = ${Mmax} kN·m = ${Mmax} × 10^6 = ${M_Nmm} N·mm`,
+        `Z = ${Z} mm³`,
+        `σ_曲げ = M/Z = ${M_Nmm} / ${Z} = ${sigmaBend} N/mm²`,
+        "",
+        "③ 応力度の重ね合わせ",
         `圧縮側縁: σ = σ_軸 − σ_曲げ = ${sigmaAxial} − ${sigmaBend} = ${sigmaComp} N/mm²`,
       ]
     : [
         "複合応力度は σ = N/A ± M/Z で求めます。引張側縁では σ = N/A + M/Z です。",
-        `軸力: N = ${N_kN} kN = ${N_kN * 1000} N`,
-        `断面積: A = b×h = ${bmm}×${hmm} = ${A} mm²`,
-        `σ_軸 = N/A = ${N_kN * 1000} / ${A} = ${sigmaAxial} N/mm²`,
+        "① 軸力による応力度",
+        `N = ${N_kN} kN = ${N_kN} × 10^3 = ${N_N} N`,
+        `A = b×h = ${bmm}×${hmm} = ${A} mm²`,
+        `σ_軸 = N/A = ${N_N} / ${A} = ${sigmaAxial} N/mm²`,
         "",
-        `曲げ: M_max = ${Mmax} kN·m, Z = ${Z} mm³`,
-        `σ_曲げ = M/Z = ${sigmaBend} N/mm²`,
+        "② 曲げによる応力度",
+        `M_max = ${Mmax} kN·m = ${Mmax} × 10^6 = ${M_Nmm} N·mm`,
+        `Z = ${Z} mm³`,
+        `σ_曲げ = M/Z = ${M_Nmm} / ${Z} = ${sigmaBend} N/mm²`,
         "",
-        `σ = σ_軸 + σ_曲げ = ${sigmaAxial} + ${sigmaBend} = ${sigma} N/mm²`,
+        "③ 応力度の重ね合わせ",
+        `引張側縁: σ = σ_軸 + σ_曲げ = ${sigmaAxial} + ${sigmaBend} = ${sigma} N/mm²`,
       ];
 
   return {

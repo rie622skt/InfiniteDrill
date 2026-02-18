@@ -10,7 +10,7 @@ import {
   Platform,
   useWindowDimensions,
 } from "react-native";
-import type { BucklingSupportType, Difficulty, ProblemCategory } from "../types";
+import type { BeamProblem, BucklingSupportType, Difficulty, ProblemCategory } from "../types";
 import { ColumnDiagram } from "../components/ColumnDiagram";
 import { BeamDiagram } from "../components/BeamDiagram";
 import { BeamMDiagram, isBeamProblemWithDiagram } from "../components/BeamMDiagram";
@@ -85,20 +85,23 @@ export function HomeScreen() {
             : "m"
           : problem.problemCategory === "deflection"
             ? "倍"
-            : problem.target === "M_max" || problem.target === "M_at_x" ||
-              problem.target === "frame_M_beam" || problem.target === "frame_M_left" || problem.target === "frame_M_right"
-          ? "kN·m"
-          : problem.target === "Va" || problem.target === "Vb" || problem.target === "Q_at_x"
-            ? "kN"
-            : problem.target === "Z"
-              ? "mm³"
-              : problem.target === "I" || problem.target === "I_centroid"
-                ? "mm⁴"
-                : problem.target === "sigma"
-                  ? "N/mm²"
-                  : problem.target === "x_g"
-                    ? "mm"
-                    : "";
+            : problem.target === "M_max" ||
+                problem.target === "M_at_x" ||
+                problem.target === "frame_M_beam" ||
+                problem.target === "frame_M_left" ||
+                problem.target === "frame_M_right"
+              ? "kN·m"
+              : problem.target === "Va" || problem.target === "Vb" || problem.target === "Q_at_x"
+                ? "kN"
+                : problem.target === "Z"
+                  ? "mm³"
+                  : problem.target === "I" || problem.target === "I_centroid"
+                    ? "mm⁴"
+                    : problem.target === "sigma"
+                      ? "N/mm²"
+                      : problem.target === "x_g" || problem.target === "y_g"
+                        ? "mm"
+                        : "";
 
   const targetLabel =
     !problem
@@ -115,26 +118,31 @@ export function HomeScreen() {
           : problem.problemCategory === "deflection"
             ? "倍率"
             : problem.target === "M_max"
-          ? "M_max"
-          : problem.target === "M_at_x"
-            ? "M(x)"
-            : problem.target === "Va"
-              ? "V_A"
-              : problem.target === "Vb"
-                ? "V_B"
-                : problem.target === "Q_at_x"
-                  ? "Q(x)"
-                  : problem.target === "Z"
-                ? "Z"
-                : problem.target === "I" || problem.target === "I_centroid"
-                  ? "I"
-                  : problem.target === "sigma"
-                    ? "σ"
-                    : problem.target === "x_g"
-                      ? "x_g"
-                      : problem.problemCategory === "frame" && (problem.target === "frame_M_left" || problem.target === "frame_M_right" || problem.target === "frame_M_beam")
-                      ? "M"
-                      : "";
+            ? "M_max"
+            : problem.target === "M_at_x"
+              ? "M(x)"
+              : problem.target === "Va"
+                ? "V_A"
+                : problem.target === "Vb"
+                  ? "V_B"
+                  : problem.target === "Q_at_x"
+                    ? "Q(x)"
+                    : problem.target === "Z"
+                      ? "Z"
+                      : problem.target === "I" || problem.target === "I_centroid"
+                        ? "I"
+                        : problem.target === "sigma"
+                          ? "σ"
+                          : problem.target === "x_g"
+                            ? "x_g"
+                            : problem.target === "y_g"
+                              ? "y_g"
+                              : problem.problemCategory === "frame" &&
+                                  (problem.target === "frame_M_left" ||
+                                    problem.target === "frame_M_right" ||
+                                    problem.target === "frame_M_beam")
+                                ? "M"
+                                : "";
 
   const handleSelect = (value: number) => {
     if (problem === null || isCorrect !== null) return;
@@ -710,6 +718,7 @@ export function HomeScreen() {
                       <SectionDiagram
                         b={problem.sectionBmm}
                         h={problem.sectionHmm}
+                        shape={problem.sectionShape}
                         bInner={problem.sectionBInner}
                         hInner={problem.sectionHInner}
                         b1={problem.sectionB1mm}
@@ -722,6 +731,49 @@ export function HomeScreen() {
                         断面寸法が取得できません
                       </Text>
                     )
+                  ) : problem.problemCategory === "deflection" &&
+                    problem.deflectionComparison != null ? (
+                    (() => {
+                      const dc = problem.deflectionComparison;
+                      const problemA: BeamProblem = {
+                        type: "concentrated",
+                        structure: dc.structureA,
+                        L: dc.L_A,
+                        P: dc.P_A,
+                        a: dc.structureA === "simple" ? dc.L_A / 2 : dc.L_A,
+                        b: dc.structureA === "simple" ? dc.L_A / 2 : 0,
+                        target: "M_max",
+                        answer: 0,
+                        choices: [],
+                        explanation: "",
+                      };
+                      const problemB: BeamProblem = {
+                        type: "concentrated",
+                        structure: dc.structureB,
+                        L: dc.L_B,
+                        P: dc.P_B,
+                        a: dc.structureB === "simple" ? dc.L_B / 2 : dc.L_B,
+                        b: dc.structureB === "simple" ? dc.L_B / 2 : 0,
+                        target: "M_max",
+                        answer: 0,
+                        choices: [],
+                        explanation: "",
+                      };
+                      const labelA = dc.structureA === "simple" ? "単純梁（中央集中）" : "片持ち梁（先端集中）";
+                      const labelB = dc.structureB === "simple" ? "単純梁（中央集中）" : "片持ち梁（先端集中）";
+                      return (
+                        <View>
+                          <View style={{ marginBottom: 24 }}>
+                            <Text style={[styles.diagramCaption, { marginBottom: 8 }]}>梁A: {labelA}</Text>
+                            <BeamDiagram problem={problemA} />
+                          </View>
+                          <View>
+                            <Text style={[styles.diagramCaption, { marginBottom: 8 }]}>梁B: {labelB}</Text>
+                            <BeamDiagram problem={problemB} />
+                          </View>
+                        </View>
+                      );
+                    })()
                   ) : problem.problemCategory === "bending-stress" ? (
                     <>
                       <BeamDiagram problem={problem} />
@@ -731,6 +783,7 @@ export function HomeScreen() {
                           <SectionDiagram
                             b={problem.sectionBmm}
                             h={problem.sectionHmm}
+                            shape={problem.sectionShape}
                             bInner={problem.sectionBInner}
                             hInner={problem.sectionHInner}
                             b1={problem.sectionB1mm}
@@ -793,6 +846,9 @@ export function HomeScreen() {
                     }
                     if (problem.target === "x_g") {
                       return "図のL形断面の図心の、左端からの距離 x_g [mm] を求めよ";
+                    }
+                    if (problem.target === "y_g") {
+                      return "図のT形断面の図心の、上端からの距離 y_g [mm] を求めよ";
                     }
                     if (problem.target === "I_centroid") {
                       return "図のL形断面について、図心（x_g）を通る鉛直軸まわりの断面二次モーメント I [mm⁴] を求めよ";
@@ -863,7 +919,12 @@ export function HomeScreen() {
               {problem && (
                 <Text style={styles.info}>
                   {problem.problemCategory === "deflection"
-                    ? "図は単純梁・片持ち梁のイメージです。倍率は公式の比例関係から答えてください。"
+                    ? problem.deflectionComparison != null
+                      ? (() => {
+                          const dc = problem.deflectionComparison;
+                          return `梁A: L_A = ${dc.L_A} m, P_A = ${dc.P_A} kN（${dc.structureA === "simple" ? "単純梁・中央集中" : "片持ち・先端集中"}） / 梁B: L_B = ${dc.L_B} m, P_B = ${dc.P_B} kN（${dc.structureB === "simple" ? "単純梁・中央集中" : "片持ち・先端集中"}）。EI は両方とも同じとする。`;
+                        })()
+                      : "図は単純梁・片持ち梁のイメージです。倍率は公式の比例関係から答えてください。"
                     : problem.problemCategory === "section-properties" &&
                   problem.sectionBmm != null &&
                   problem.sectionHmm != null
@@ -876,11 +937,15 @@ export function HomeScreen() {
                         problem.sectionTfMm != null &&
                         problem.sectionTwMm != null
                         ? `b = ${problem.sectionBmm} mm, h = ${problem.sectionHmm} mm, tf = ${problem.sectionTfMm} mm, tw = ${problem.sectionTwMm} mm`
-                        : problem.sectionShape === "hollow-rect" &&
-                        problem.sectionBInner != null &&
-                        problem.sectionHInner != null
-                        ? `外寸 b×h = ${problem.sectionBmm}×${problem.sectionHmm} mm, 内寸 b'×h' = ${problem.sectionBInner}×${problem.sectionHInner} mm`
-                        : `b = ${problem.sectionBmm} mm, h = ${problem.sectionHmm} mm`
+                        : problem.sectionShape === "T-shape" &&
+                          problem.sectionTfMm != null &&
+                          problem.sectionTwMm != null
+                          ? `b = ${problem.sectionBmm} mm, h = ${problem.sectionHmm} mm, t_f = ${problem.sectionTfMm} mm, t_w = ${problem.sectionTwMm} mm`
+                          : problem.sectionShape === "hollow-rect" &&
+                          problem.sectionBInner != null &&
+                          problem.sectionHInner != null
+                          ? `外寸 b×h = ${problem.sectionBmm}×${problem.sectionHmm} mm, 内寸 b'×h' = ${problem.sectionBInner}×${problem.sectionHInner} mm`
+                          : `b = ${problem.sectionBmm} mm, h = ${problem.sectionHmm} mm`
                     : problem.problemCategory === "bending-stress" &&
                         problem.type === "concentrated"
                       ? problem.axialForceKN != null

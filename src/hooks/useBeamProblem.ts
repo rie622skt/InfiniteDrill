@@ -684,7 +684,7 @@ function generateCantileverConcentrated(difficulty?: Difficulty): BeamProblemCon
       "|M_max| = P × a",
       `= ${P} × ${a}`,
       `= ${answer} kN·m`,
-      "※片持ち梁の曲げモーメントは負値で表されることがありますが、本問では大きさ（絶対値）を問うているため正の値で答えます。",
+      "※本問では大きさを問うているため、絶対値（正の値）で解答します。",
     ].join("\n");
     wrongCandidates = [
       r(P * L),
@@ -1090,7 +1090,7 @@ function generateCantileverDistributed(difficulty?: Difficulty): BeamProblemDist
         `= (${w} × ${L}²) / 2`,
         `= ${wL2} / 2`,
         `= ${answer} kN·m`,
-        "※片持ち梁の曲げモーメントは負値で表されることがありますが、本問では大きさ（絶対値）を問うているため正の値で答えます。",
+        "※本問では大きさを問うているため、絶対値（正の値）で解答します。",
       ].join("\n");
       wrongCandidates = [
         r((w * L * L) / 8),
@@ -1146,7 +1146,7 @@ function generateCantileverDistributed(difficulty?: Difficulty): BeamProblemDist
       `= (${w} × ${L}²) / 2`,
       `= ${wL2} / 2`,
       `= ${answer} kN·m`,
-      "※片持ち梁の曲げモーメントは負値で表されることがありますが、本問では大きさ（絶対値）を問うているため正の値で答えます。",
+      "※本問では大きさを問うているため、絶対値（正の値）で解答します。",
     ].join("\n");
     wrongCandidates = [
       r((w * L * L) / 8),

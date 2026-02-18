@@ -15,7 +15,101 @@ function pickRandom<T>(arr: readonly T[]): T {
  * 単純梁中央 δ = PL³/(48EI)、片持ち先端 δ = PL³/(3EI) より、
  * δ ∝ L³, δ ∝ 1/EI, δ ∝ P。よって「Lを2倍にするとδは8倍」「EIを2倍にするとδは0.5倍」「Pを2倍にするとδは2倍」。
  */
-export function generateDeflectionProblem(_difficulty?: Difficulty): BeamProblem {
+/** δ = P×L³/(k×EI)。単純梁中央 k=48、片持ち先端 k=3 */
+function deflectionCoeff(s: DeflectionStructure): number {
+  return s === "simple" ? 48 : 3;
+}
+
+const DEFLECTION_COMPARISON_CASES: readonly {
+  structureA: DeflectionStructure;
+  structureB: DeflectionStructure;
+  L_A: number;
+  L_B: number;
+  P_A: number;
+  P_B: number;
+  answer: number;
+}[] = [
+  { structureA: "simple", structureB: "cantilever", L_A: 4, L_B: 4, P_A: 1, P_B: 1, answer: 1 / 16 },
+  { structureA: "simple", structureB: "cantilever", L_A: 2, L_B: 1, P_A: 1, P_B: 1, answer: 0.5 },
+  { structureA: "simple", structureB: "cantilever", L_A: 2, L_B: 1, P_A: 2, P_B: 1, answer: 1 },
+  { structureA: "simple", structureB: "cantilever", L_A: 4, L_B: 2, P_A: 4, P_B: 1, answer: 2 },
+  { structureA: "simple", structureB: "cantilever", L_A: 4, L_B: 2, P_A: 1, P_B: 1, answer: 0.5 },
+  { structureA: "cantilever", structureB: "simple", L_A: 4, L_B: 4, P_A: 1, P_B: 1, answer: 16 },
+  { structureA: "cantilever", structureB: "simple", L_A: 1, L_B: 2, P_A: 1, P_B: 1, answer: 2 },
+  { structureA: "cantilever", structureB: "simple", L_A: 1, L_B: 2, P_A: 1, P_B: 2, answer: 1 },
+  { structureA: "cantilever", structureB: "simple", L_A: 2, L_B: 4, P_A: 1, P_B: 4, answer: 0.5 },
+];
+
+function roundToFour(value: number): number {
+  return Math.round(value * 10000) / 10000;
+}
+
+function generateDeflectionComparisonProblem(): BeamProblem {
+  const c = pickRandom(DEFLECTION_COMPARISON_CASES);
+  const kA = deflectionCoeff(c.structureA);
+  const kB = deflectionCoeff(c.structureB);
+  const deltaA = (c.P_A * c.L_A ** 3) / kA;
+  const deltaB = (c.P_B * c.L_B ** 3) / kB;
+  const answer = roundToFour(deltaA / deltaB);
+  const wrongCandidates = [
+    roundToFour(deltaB / deltaA),
+    roundToFour((c.P_A / c.P_B) * (c.L_A / c.L_B)),
+    roundToFour((c.L_A / c.L_B) ** 3),
+    answer * 2,
+    answer / 2,
+    answer * 4,
+    answer / 4,
+    1,
+  ].filter((v) => v > 0 && Math.abs(v - answer) > 0.001);
+  const uniq = Array.from(new Set(wrongCandidates));
+  const chosenWrong: number[] = [];
+  while (chosenWrong.length < 3 && uniq.length > 0) {
+    const idx = Math.floor(Math.random() * uniq.length);
+    chosenWrong.push(uniq.splice(idx, 1)[0]);
+  }
+  const choices = [...chosenWrong, answer].sort((a, b) => a - b);
+  const labelA = c.structureA === "simple" ? "単純梁（中央集中荷重 P_A）" : "片持ち梁（先端集中荷重 P_A）";
+  const labelB = c.structureB === "simple" ? "単純梁（中央集中荷重 P_B）" : "片持ち梁（先端集中荷重 P_B）";
+  const numA = c.P_A * c.L_A ** 3;
+  const numB = c.P_B * c.L_B ** 3;
+  const denA = c.structureA === "simple" ? 48 : 3;
+  const denB = c.structureB === "simple" ? 48 : 3;
+  const explanation = [
+    "梁A・梁Bそれぞれのたわみ公式から δ_A, δ_B を求め、比 δ_A/δ_B を計算します。",
+    `梁A（${labelA}）: δ_A = P_A×L_A³/(${denA}EI)`,
+    `梁B（${labelB}）: δ_B = P_B×L_B³/(${denB}EI)`,
+    `δ_A = ${c.P_A}×${c.L_A}³/(${denA}EI) = ${numA}/(${denA}EI), δ_B = ${c.P_B}×${c.L_B}³/(${denB}EI) = ${numB}/(${denB}EI)`,
+    `δ_A/δ_B = (${numA}/${denA}) / (${numB}/${denB}) = ${answer}`,
+  ].join("\n");
+  return {
+    type: "concentrated",
+    structure: c.structureA,
+    L: c.L_A,
+    target: "M_max",
+    answer,
+    choices,
+    explanation,
+    problemCategory: "deflection" as ProblemCategory,
+    customQuestion: "梁Aのたわみ δ_A と梁Bのたわみ δ_B の比 δ_A/δ_B を求めよ。",
+    P: c.P_A,
+    a: c.structureA === "simple" ? c.L_A / 2 : c.L_A,
+    b: c.structureA === "simple" ? c.L_A / 2 : 0,
+    deflectionComparison: {
+      structureA: c.structureA,
+      structureB: c.structureB,
+      L_A: c.L_A,
+      L_B: c.L_B,
+      P_A: c.P_A,
+      P_B: c.P_B,
+    },
+  };
+}
+
+export function generateDeflectionProblem(difficulty?: Difficulty): BeamProblem {
+  const eff = difficulty ?? "intermediate";
+  if (eff === "intermediate" || eff === "advanced") {
+    if (Math.random() < 0.5) return generateDeflectionComparisonProblem();
+  }
   const structure = pickRandom(["simple", "cantilever"] as const) as DeflectionStructure;
   const variable = pickRandom(["L", "EI", "P"] as const) as DeflectionVariable;
   const mult = 2; // 「2倍にすると」に固定（答えがきれいな整数・0.5になるため）

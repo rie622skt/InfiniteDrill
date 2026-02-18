@@ -1,8 +1,22 @@
 /** 難易度 */
 export type Difficulty = "beginner" | "intermediate" | "advanced" | "mixed";
 
-/** 問いの対象: 最大曲げモーメント / 左支点A反力 / 右支点B反力 / 断面係数 / 断面二次モーメント / 曲げ応力度 / 位置xの曲げモーメント・せん断力 / 図心位置 / ラーメン用 */
-export type ProblemTarget = "M_max" | "Va" | "Vb" | "Z" | "I" | "I_centroid" | "sigma" | "M_at_x" | "Q_at_x" | "x_g" | "frame_M_beam" | "frame_M_left" | "frame_M_right";
+/** 問いの対象: 最大曲げモーメント / 左支点A反力 / 右支点B反力 / 断面係数 / 断面二次モーメント / 曲げ応力度 / 位置xの曲げモーメント・せん断力 / 図心位置（x_g, y_g） / ラーメン用 */
+export type ProblemTarget =
+  | "M_max"
+  | "Va"
+  | "Vb"
+  | "Z"
+  | "I"
+  | "I_centroid"
+  | "sigma"
+  | "M_at_x"
+  | "Q_at_x"
+  | "x_g"
+  | "y_g"
+  | "frame_M_beam"
+  | "frame_M_left"
+  | "frame_M_right";
 
 /** 構造: 単純梁 / 片持ち梁 / 張り出し梁 */
 export type BeamStructure = "simple" | "cantilever" | "overhang";
@@ -27,6 +41,7 @@ export type ProblemCategory =
 export type TrussPattern =
   | "simple-triangle"
   | "zero-member"
+  | "zero-member-t"
   | "cantilever-truss"
   | "pratt-truss";
 
@@ -87,8 +102,8 @@ type BeamProblemBase = {
   sectionBmm?: number;
   /** 断面問題で使用するせい h [mm]（外寸 or 実長方形のせい） */
   sectionHmm?: number;
-  /** 断面形状: 長方形 / 中空長方形（ロの字）/ L形（横並び2長方形）/ H形。未指定は長方形 */
-  sectionShape?: "rectangle" | "hollow-rect" | "L-shape" | "H-shape";
+  /** 断面形状: 長方形 / 中空長方形（ロの字）/ L形（横並び2長方形）/ H形 / T形。未指定は長方形 */
+  sectionShape?: "rectangle" | "hollow-rect" | "L-shape" | "H-shape" | "T-shape";
   /** 中空断面の内側幅 b' [mm]（sectionShape === 'hollow-rect' のとき必須） */
   sectionBInner?: number;
   /** 中空断面の内側せい h' [mm]（sectionShape === 'hollow-rect' のとき必須） */
@@ -139,6 +154,15 @@ type BeamProblemBase = {
   frameHorizontalP?: number;
   /** 問題文を上書き（たわみの倍率問題など）。指定時はこれをそのまま表示 */
   customQuestion?: string;
+  /** たわみの大小比較（δ_A/δ_B）問題。指定時は梁A・梁Bの2本を表示し、比を問う（中級・上級向け） */
+  deflectionComparison?: {
+    structureA: "simple" | "cantilever";
+    structureB: "simple" | "cantilever";
+    L_A: number;
+    L_B: number;
+    P_A: number;
+    P_B: number;
+  };
 };
 
 /** 集中荷重 */

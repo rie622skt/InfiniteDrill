@@ -344,6 +344,121 @@ function ZeroMemberTruss({
   );
 }
 
+/** ゼロメンバー用（T字節点）: 直線上に2部材、その節点に1部材が交接。外力なしならその1部材の軸力は0。部材A＝T字の縦棒。 */
+function ZeroMemberTTruss({
+  P,
+  L,
+  targetMember,
+  maxWidth,
+  sizeScale = 1,
+}: {
+  P: number;
+  L: number;
+  targetMember: string;
+  maxWidth?: number;
+  sizeScale?: number;
+}) {
+  const offsetX = 28;
+  const span = 2 * L_DISPLAY * SCALE;
+  const w = span + MARGIN * 2 + 68;
+  const topY = MARGIN + 24;
+  const tNodeY = topY + L_DISPLAY * 0.5 * SCALE;
+  const baseY = tNodeY + L_DISPLAY * 0.55 * SCALE;
+  const bottomY = baseY + L_DISPLAY * 0.45 * SCALE;
+  const h = bottomY + SUPPORT_H + ARROW_H + 40 + MARGIN;
+  const leftX = MARGIN + offsetX;
+  const rightX = leftX + span;
+  const midX = leftX + L_DISPLAY * SCALE;
+  const isTarget = targetMember === "A";
+  const scale = maxWidth != null && w > maxWidth ? maxWidth / w : 1;
+  const svgW = scale * w * sizeScale;
+  const svgH = scale * h * sizeScale;
+
+  return (
+    <Svg width={svgW} height={svgH} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet">
+      {/* 上弦: 左−T節点−右（同一直線上の2部材）。T節点から下に部材A（ゼロメンバー）。下弦: 左下・右下と荷重節点 */}
+      <Line x1={leftX} y1={tNodeY} x2={midX} y2={tNodeY} stroke="#333" strokeWidth={2} />
+      <Line x1={midX} y1={tNodeY} x2={rightX} y2={tNodeY} stroke="#333" strokeWidth={2} />
+      <Line
+        x1={midX}
+        y1={tNodeY}
+        x2={midX}
+        y2={bottomY}
+        stroke={isTarget ? "#e65100" : "#333"}
+        strokeWidth={2}
+      />
+      <Line x1={leftX} y1={tNodeY} x2={leftX} y2={baseY} stroke="#333" strokeWidth={2} />
+      <Line x1={rightX} y1={tNodeY} x2={rightX} y2={baseY} stroke="#333" strokeWidth={2} />
+      <Line x1={leftX} y1={baseY} x2={midX} y2={bottomY} stroke="#333" strokeWidth={2} />
+      <Line x1={rightX} y1={baseY} x2={midX} y2={bottomY} stroke="#333" strokeWidth={2} />
+      <Line x1={leftX} y1={baseY} x2={rightX} y2={baseY} stroke="#333" strokeWidth={2} />
+      {/* 節点 */}
+      <Circle cx={leftX} cy={tNodeY} r={NODE_R} fill="#333" />
+      <Circle cx={midX} cy={tNodeY} r={NODE_R} fill="#333" />
+      <Circle cx={rightX} cy={tNodeY} r={NODE_R} fill="#333" />
+      <Circle cx={leftX} cy={baseY} r={NODE_R} fill="#333" />
+      <Circle cx={rightX} cy={baseY} r={NODE_R} fill="#333" />
+      <Circle cx={midX} cy={bottomY} r={NODE_R} fill="#333" />
+      {/* 荷重（下中央節点に下向き） */}
+      <Line
+        x1={midX}
+        y1={bottomY + NODE_R}
+        x2={midX}
+        y2={bottomY + NODE_R + ARROW_H}
+        stroke="#333"
+        strokeWidth={2}
+      />
+      <Polygon
+        points={`${midX},${bottomY + NODE_R + ARROW_H + 4} ${midX - ARROW_W},${bottomY + NODE_R + ARROW_H} ${midX + ARROW_W},${bottomY + NODE_R + ARROW_H}`}
+        fill="#333"
+      />
+      <Text
+        x={midX}
+        y={bottomY + NODE_R + ARROW_H + 26}
+        fill="#333"
+        fontSize={16}
+        textAnchor="middle"
+      >
+        P={P}kN
+      </Text>
+      {/* 支点: 左ピン・右ローラー */}
+      <Line x1={leftX - 8} y1={baseY} x2={leftX + 8} y2={baseY} stroke="#333" strokeWidth={2} />
+      <Polygon
+        points={`${leftX},${baseY} ${leftX - 10},${baseY + SUPPORT_H} ${leftX + 10},${baseY + SUPPORT_H}`}
+        fill="#555"
+        stroke="#333"
+        strokeWidth={1}
+      />
+      <Line x1={rightX - 8} y1={baseY} x2={rightX + 8} y2={baseY} stroke="#333" strokeWidth={2} />
+      <Polygon
+        points={`${rightX},${baseY} ${rightX - 10},${baseY + SUPPORT_H} ${rightX + 10},${baseY + SUPPORT_H}`}
+        fill="#555"
+        stroke="#333"
+        strokeWidth={1}
+      />
+      <Line
+        x1={rightX - 12}
+        y1={baseY + SUPPORT_H + 4}
+        x2={rightX + 12}
+        y2={baseY + SUPPORT_H + 4}
+        stroke="#333"
+        strokeWidth={1}
+      />
+      {isTarget && (
+        <Text
+          x={midX + 24}
+          y={(tNodeY + bottomY) / 2 - 14}
+          fill="#e65100"
+          fontSize={16}
+          textAnchor="start"
+        >
+          部材{targetMember}
+        </Text>
+      )}
+    </Svg>
+  );
+}
+
 /** 片持ちトラス: 左に壁、2スパン右に突出。先端に荷重 P。図は右寄せし、左余白に h= を配置。 */
 const CANTILEVER_LEFT_MARGIN = 112 - SHIFT_LEFT;
 
@@ -888,6 +1003,15 @@ export function TrussDiagram({ pattern, P, L, targetMember }: Props) {
       )}
       {pattern === "zero-member" && (
         <ZeroMemberTruss
+          P={P}
+          L={L}
+          targetMember={targetMember}
+          maxWidth={maxDiagramWidth}
+          sizeScale={DIAGRAM_SIZE_SCALE}
+        />
+      )}
+      {pattern === "zero-member-t" && (
+        <ZeroMemberTTruss
           P={P}
           L={L}
           targetMember={targetMember}

@@ -40,7 +40,8 @@ export function generateTrussCalculation(difficulty: Difficulty): BeamProblem {
     "底辺（水平部材）の軸力は、節点の水平力のつり合いから求めます。",
     "斜材の傾きが 45°（縦1：横1）なので、鉛直成分と水平成分の力は同じ大きさになります。",
     "斜材が 45° のとき、斜材の水平成分が底辺と釣り合うため、底辺の軸力 N = (P/2) cot(45°) = P/2 となります。",
-    "建築士試験では引張を正（+）、圧縮を負（-）とします。底辺は引張なので N_A = +" + answer + " kN です。",
+    "底辺は引張なので N_A = +" + answer + " kN です。",
+    "※建築士試験の慣例に従い、引張力を正（+）、圧縮力を負（-）とします。",
   ].join("\n");
 
   return {
@@ -62,8 +63,50 @@ export function generateTrussCalculation(difficulty: Difficulty): BeamProblem {
   };
 }
 
-/** ゼロメンバー: 荷重のないL字節点に接続する部材の軸力は 0。 */
+/** ゼロメンバー（T字節点）: 直線上に2部材、その節点に1部材が交接。外力なしならその1部材の軸力は0。 */
+function generateTrussZeroT(): BeamProblem {
+  const P = pickRandom(P_VALUES_KN);
+  const L = pickRandom(L_VALUES_M);
+  const answer = 0;
+
+  const wrongCandidates: number[] = [P / 2, -P / 2, P, -P, P / 4, -P / 4];
+  const uniq = Array.from(new Set(wrongCandidates));
+  const chosenWrong: number[] = [];
+  while (chosenWrong.length < 3 && uniq.length > 0) {
+    const idx = Math.floor(Math.random() * uniq.length);
+    chosenWrong.push(uniq.splice(idx, 1)[0]);
+  }
+  const choices = [...chosenWrong, answer].sort((a, b) => a - b);
+
+  const explanation = [
+    "荷重のない節点に3本の部材が接続し、そのうち2本が同一直線上にあるとき、残りの1本の軸力は 0 になります（ゼロメンバーの定理）。",
+    "図のT字節点（上弦中央）では、左水平材と右水平材が同一直線上にあり、部材A（T字の縦棒＝上弦中央から下に向かう1本）は同一直線上にない方の1本なので N_A = 0 kN です。",
+    "※建築士試験の慣例に従い、引張力を正（+）、圧縮力を負（-）とします。",
+  ].join("\n");
+
+  return {
+    type: "concentrated",
+    structure: "simple",
+    L,
+    target: "M_max",
+    answer,
+    choices,
+    explanation,
+    problemCategory: "truss-zero" as ProblemCategory,
+    trussPattern: "zero-member-t" as TrussPattern,
+    targetMember: "A",
+    trussP: P,
+    trussL: L,
+    P: 0,
+    a: 0,
+    b: 0,
+  };
+}
+
+/** ゼロメンバー: L字節点またはT字節点のいずれかを50%で出題。荷重のない節点で同一直線上に2部材があるとき、残り1本の軸力は0。 */
 export function generateTrussZero(difficulty: Difficulty): BeamProblem {
+  if (Math.random() < 0.5) return generateTrussZeroT();
+
   const P = pickRandom(P_VALUES_KN);
   const L = pickRandom(L_VALUES_M);
   const answer = 0;
@@ -80,7 +123,7 @@ export function generateTrussZero(difficulty: Difficulty): BeamProblem {
   const explanation = [
     "荷重のない節点に3本の部材が接続し、そのうち2本が同一直線上にあるとき、残りの1本の軸力は 0 になります（ゼロメンバーの定理）。",
     "図のL字節点では、左斜材と右上への部材が同一直線上にあり、部材A（L字節点→右下）は同一直線上にない方の1本なので N_A = 0 kN です。",
-    "建築士試験では引張を正、圧縮を負としますが、ゼロメンバーは 0 です。",
+    "※建築士試験の慣例に従い、引張力を正（+）、圧縮力を負（-）とします。",
   ].join("\n");
 
   return {
@@ -139,12 +182,14 @@ export function generateTrussCantilever(difficulty: Difficulty): BeamProblem {
       ? [
           "片持ちトラスで先端に荷重 P が作用するとき、第1パネルで切断し切断面以右の自由体を考えます。",
           "上弦材（部材A）を求めるには、モーメントの中心を「中央下節点」（斜材と下弦の交点）に取ります。荷重 P までの距離は L なので M = P×L。上弦の軸力の大きさは N = M/h = P×L/L = P、引張なので N_A = +P kN です。",
-          "建築士試験では引張を正（+）、圧縮を負（-）とします。部材A（" + memberLabel + "）は" + signLabel + "なので N = " + answer + " kN です。",
+          "部材A（" + memberLabel + "）は" + signLabel + "なので N = " + answer + " kN です。",
+          "※建築士試験の慣例に従い、引張力を正（+）、圧縮力を負（-）とします。",
         ].join("\n")
       : [
           "片持ちトラスで先端に荷重 P が作用するとき、第1パネルで切断し切断面以右の自由体を考えます。",
           "下弦材（部材B）を求めるには、モーメントの中心を「左上支点（壁）」に取ります。荷重 P までの距離は 2L なので M = P×2L。下弦の軸力の大きさは N = M/h = P×2L/L = 2P、圧縮なので N_B = -2P kN です。",
-          "建築士試験では引張を正（+）、圧縮を負（-）とします。部材B（" + memberLabel + "）は" + signLabel + "なので N = " + answer + " kN です。",
+          "部材B（" + memberLabel + "）は" + signLabel + "なので N = " + answer + " kN です。",
+          "※建築士試験の慣例に従い、引張力を正（+）、圧縮力を負（-）とします。",
         ].join("\n");
 
   return {
@@ -250,7 +295,8 @@ export function generateTrussPratt(difficulty: Difficulty): BeamProblem {
       "左下節点には鉛直反力と左端垂直材のみが接続し、下弦左は水平方向のみなので N_C = 0。",
     targetMember === "D" &&
       "中央下節点に荷重Pが作用。左右の斜材（各々鉛直成分 P/2 で上向き）がPを受け持つため、中央垂直材の軸力は N_D = 0（ゼロメンバー）。",
-    `部材${targetMember}（${memberLabel}）は N = ${answer} kN です。引張を正、圧縮を負とします。`,
+    `部材${targetMember}（${memberLabel}）は N = ${answer} kN です。`,
+    "※建築士試験の慣例に従い、引張力を正（+）、圧縮力を負（-）とします。",
   ]
     .filter(Boolean)
     .join("\n");
