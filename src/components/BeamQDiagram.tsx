@@ -216,9 +216,6 @@ export function BeamQDiagram({ problem }: Props) {
           stroke="#4caf50"
           strokeWidth={1.5}
         />
-        <Text x={svgWidth / 2} y={svgHeight - 4} fill="#666" fontSize={10} textAnchor="middle">
-          せん断力図 Q
-        </Text>
       </Svg>
     </View>
   );

@@ -15,6 +15,7 @@ import { ColumnDiagram } from "../components/ColumnDiagram";
 import { BeamDiagram } from "../components/BeamDiagram";
 import { BeamMDiagram, isBeamProblemWithDiagram } from "../components/BeamMDiagram";
 import { BeamQDiagram } from "../components/BeamQDiagram";
+import { DragonMascot } from "../components/DragonMascot";
 import { SectionDiagram } from "../components/SectionDiagram";
 import { TrussDiagram } from "../components/TrussDiagram";
 import { FrameDiagram } from "../components/FrameDiagram";
@@ -1018,15 +1019,15 @@ export function HomeScreen() {
                       正解: {formatValue(problem.answer)} {unit}
                     </Text>
                   )}
-                  {problem?.explanation != null &&
-                    problem.explanation.length > 0 && (
-                      <View style={styles.explanationBox}>
+                  {problem?.explanation != null && problem.explanation.length > 0 && (
+                    <View style={styles.explanationBox}>
+                      <View style={styles.explanationMascotRow}>
+                        <DragonMascot />
                         <Text style={styles.explanationTitle}>解説</Text>
-                        <Text style={styles.explanationText}>
-                          {problem.explanation}
-                        </Text>
                       </View>
-                    )}
+                      <Text style={styles.explanationText}>{problem.explanation}</Text>
+                    </View>
+                  )}
                   {problem != null && isBeamProblemWithDiagram(problem) && (
                     <View style={styles.diagramSection}>
                       <Text style={styles.diagramCaption}>曲げモーメント図</Text>
@@ -1217,6 +1218,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#bbdefb",
     alignSelf: "stretch",
+  },
+  explanationMascotRow: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
   },
   explanationTitle: {
     fontSize: 14,

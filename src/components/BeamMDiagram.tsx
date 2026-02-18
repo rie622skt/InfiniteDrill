@@ -6,11 +6,7 @@ import type { BeamProblem } from "../types";
 const PIXELS_PER_METER = 30;
 const MARGIN_H = 40;
 const CHART_HEIGHT = 56;
-// ZERO_Y は図のベースライン（M=0）の Y 座標。
-// |M| が最大のとき ZERO_Y ± MAX_M_HEIGHT の範囲に収まるよう、
-// ZERO_Y は必ず MAX_M_HEIGHT より十分下にとり、上端に余白を確保する。
 const MAX_M_HEIGHT = 44;
-const ZERO_Y = MAX_M_HEIGHT + 24; // 68（上端とのマージンを増やして欠けを防ぐ）
 
 /** 梁問題かどうか（解説で M図・Q図を表示する対象）。BeamMDiagram/BeamQDiagram と同一条件。 */
 export function isBeamProblemWithDiagram(p: BeamProblem): boolean {
@@ -149,16 +145,44 @@ export function BeamMDiagram({ problem }: Props) {
       : problem.L;
   const beamWidth = totalLength * PIXELS_PER_METER;
   const svgWidth = beamWidth + 2 * MARGIN_H;
-  const svgHeight = ZERO_Y + MAX_M_HEIGHT + 20;
+  const chartHeight = CHART_HEIGHT;
+  const TOP_MARGIN = 8;
+  const BOTTOM_MARGIN = 8;
+  const svgHeight = chartHeight + 12;
   const xLeft = MARGIN_H;
 
   const maxAbsM = Math.max(...points.map((p) => Math.abs(p.M)), 1);
-  const scaleM = MAX_M_HEIGHT / maxAbsM;
+  const maxPositive = Math.max(...points.map((p) => Math.max(p.M, 0)), 0);
+  const maxNegativeAbs = Math.max(...points.map((p) => Math.max(-p.M, 0)), 0);
+  const hasPositive = maxPositive > 0;
+  const hasNegative = maxNegativeAbs > 0;
+
+  let zeroY = chartHeight / 2;
+  if (!hasNegative) {
+    // 全て M >= 0（図は下側のみ）→ ベースラインを上寄せ
+    zeroY = TOP_MARGIN;
+  } else if (!hasPositive) {
+    // 全て M <= 0（図は上側のみ）→ ベースラインを下寄せ
+    zeroY = chartHeight - BOTTOM_MARGIN;
+  }
+
+  const availBottom = chartHeight - BOTTOM_MARGIN - zeroY;
+  const availTop = zeroY - TOP_MARGIN;
+  const scaleCandidates: number[] = [];
+  if (maxPositive > 0 && availBottom > 0) {
+    scaleCandidates.push(availBottom / maxPositive);
+  }
+  if (maxNegativeAbs > 0 && availTop > 0) {
+    scaleCandidates.push(availTop / maxNegativeAbs);
+  }
+  // 安全弁として従来の MAX_M_HEIGHT ベースのスケールも候補に入れる
+  scaleCandidates.push(MAX_M_HEIGHT / maxAbsM);
+  const scaleM = Math.min(...scaleCandidates.filter((v) => Number.isFinite(v) && v > 0));
 
   const polyPoints = points
     .map(({ x, M }) => {
       const px = xLeft + (x / totalLength) * beamWidth;
-      const py = ZERO_Y + M * scaleM;
+      const py = zeroY + M * scaleM;
       return `${px},${py}`;
     })
     .join(" ");
@@ -169,29 +193,29 @@ export function BeamMDiagram({ problem }: Props) {
   return (
     <View style={{ alignItems: "center", marginTop: 8 }}>
       <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
-        <Text x={xLeft - 6} y={ZERO_Y + 4} fill="#666" fontSize={10} textAnchor="end">
+        <Text x={xLeft - 6} y={zeroY + 4} fill="#666" fontSize={10} textAnchor="end">
           M
         </Text>
         <Line
           x1={zeroXLeft}
-          y1={ZERO_Y}
+          y1={zeroY}
           x2={zeroXRight}
-          y2={ZERO_Y}
+          y2={zeroY}
           stroke="#999"
           strokeWidth={1}
           strokeDasharray="4,2"
         />
         <Polygon
-          points={`${zeroXLeft},${ZERO_Y} ${polyPoints} ${zeroXRight},${ZERO_Y}`}
+          points={`${zeroXLeft},${zeroY} ${polyPoints} ${zeroXRight},${zeroY}`}
           fill="rgba(25, 118, 210, 0.15)"
           stroke="#1976d2"
           strokeWidth={1.5}
         />
         <Line
           x1={zeroXLeft}
-          y1={ZERO_Y}
+          y1={zeroY}
           x2={zeroXLeft + (points[0].x / totalLength) * beamWidth}
-          y2={ZERO_Y + points[0].M * scaleM}
+          y2={zeroY + points[0].M * scaleM}
           stroke="#1976d2"
           strokeWidth={1.5}
         />
@@ -199,16 +223,13 @@ export function BeamMDiagram({ problem }: Props) {
           <Line
             key={i}
             x1={xLeft + (points[i].x / totalLength) * beamWidth}
-            y1={ZERO_Y + points[i].M * scaleM}
+            y1={zeroY + points[i].M * scaleM}
             x2={xLeft + (points[i + 1].x / totalLength) * beamWidth}
-            y2={ZERO_Y + points[i + 1].M * scaleM}
+            y2={zeroY + points[i + 1].M * scaleM}
             stroke="#1976d2"
             strokeWidth={1.5}
           />
         ))}
-        <Text x={svgWidth / 2} y={svgHeight - 4} fill="#666" fontSize={10} textAnchor="middle">
-          曲げモーメント図 M
-        </Text>
       </Svg>
     </View>
   );
