@@ -1,0 +1,483 @@
+/* 構造力学ドリル LP — ぶんこも寄せ・おしゃれ編集風 */
+:root {
+  --bg: #fafaf9;
+  --paper: #fff;
+  --ink: #1c1c1c;
+  --ink-mid: #4a4a4a;
+  --ink-soft: #737373;
+  --accent: #2d3748;
+  --accent-soft: #f1f5f9;
+  --line: #e5e5e4;
+  --line-soft: #f0efed;
+  --radius: 2px;
+  --col: min(560px, 92vw);
+  --space: 1.25rem;
+  --space-lg: 2.5rem;
+  --space-xl: 3.5rem;
+  --font-sans: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", Georgia, serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+.wrap {
+  max-width: var(--col);
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space);
+  padding-bottom: 4rem;
+}
+
+/* ----- ヘッダー ----- */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: var(--space);
+  margin-bottom: var(--space);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.header-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.header-link {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-mid);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.header-link:hover {
+  color: var(--ink);
+}
+
+/* ----- ヒーロー ----- */
+.hero {
+  padding: var(--space-xl) 0;
+  margin-bottom: var(--space-xl);
+  text-align: center;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.hero-title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.75rem, 5vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  margin: 0 0 0.5rem;
+  color: var(--ink);
+}
+
+.hero-presented {
+  font-size: 0.8125rem;
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+  margin: 0 0 2rem;
+  text-transform: uppercase;
+}
+
+.hero-what {
+  max-width: 28rem;
+  margin: 0 auto 2rem;
+  text-align: left;
+}
+
+.hero-what-label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.75rem;
+  color: var(--ink);
+}
+
+.hero-sub {
+  font-size: 0.9375rem;
+  color: var(--ink-mid);
+  line-height: 1.8;
+  margin: 0 0 1rem;
+}
+
+.hero-more {
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--ink-mid);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.hero-more:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink-soft);
+}
+
+.cta-primary {
+  display: inline-block;
+  padding: 0.75rem 2rem;
+  min-width: 11rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  text-align: center;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+}
+
+.cta-primary:hover {
+  background: var(--ink-mid);
+  border-color: var(--ink-mid);
+  color: var(--paper);
+}
+
+/* ----- セクション ----- */
+.section {
+  margin-bottom: var(--space-xl);
+}
+
+.section-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 0.375rem;
+}
+
+.section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin: 0 0 1.25rem;
+  color: var(--ink);
+}
+
+.section-sub {
+  font-size: 0.9375rem;
+  color: var(--ink-mid);
+  line-height: 1.7;
+  margin: 0 0 1.5rem;
+}
+
+.section-alt {
+  background: var(--paper);
+  padding: var(--space-lg) var(--space);
+  margin-left: calc(-1 * var(--space));
+  margin-right: calc(-1 * var(--space));
+  padding-left: var(--space);
+  padding-right: var(--space);
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+/* ----- 特徴 ----- */
+.feature-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.feature-card {
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.feature-card:last-child {
+  border-bottom: none;
+}
+
+.feature-card-number {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.feature-card-bar {
+  width: 2px;
+  height: 1rem;
+  background: var(--ink);
+  margin-right: 0.625rem;
+}
+
+.feature-card-number-text {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+}
+
+.feature-card-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.375rem;
+  color: var(--ink);
+}
+
+.feature-card-body {
+  font-size: 0.875rem;
+  color: var(--ink-mid);
+  line-height: 1.75;
+  margin: 0;
+}
+
+/* ----- カテゴリ ----- */
+.category-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.category-card {
+  background: var(--bg);
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-soft);
+}
+
+.category-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.category-desc {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ----- 診断 ----- */
+.diagnostic-body {
+  font-size: 0.9375rem;
+  color: var(--ink-mid);
+  line-height: 1.75;
+  margin: 0 0 1rem;
+}
+
+.paid-note {
+  background: var(--accent-soft);
+  padding: 1.25rem 1.25rem;
+  border-radius: var(--radius);
+  border-left: 3px solid var(--accent);
+}
+
+.paid-note-text {
+  font-size: 0.875rem;
+  color: var(--ink);
+  line-height: 1.7;
+  margin: 0;
+}
+
+.paid-note-price {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ----- 料金 ----- */
+.price-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.price-card {
+  flex: 1;
+  min-width: 220px;
+  background: var(--paper);
+  padding: 1.5rem 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-soft);
+}
+
+.price-card-highlight {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.price-card-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.25rem;
+}
+
+.price-card-price {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin: 0 0 1rem;
+}
+
+.price-card-list {
+  margin: 0 0 1rem;
+  padding-left: 1.25em;
+  font-size: 0.875rem;
+}
+
+.price-card-list li {
+  margin-bottom: 0.25rem;
+}
+
+.price-card-list .muted {
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+}
+
+.price-card-note {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.paid-cta-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0.5rem 0 0;
+}
+
+.paid-cta-soon {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  margin: 0.125rem 0 0;
+}
+
+/* ----- FAQ ----- */
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.faq-card {
+  background: var(--paper);
+  padding: 1.25rem 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-soft);
+}
+
+.faq-q {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0 0 0.5rem;
+}
+
+.faq-a {
+  font-size: 0.875rem;
+  color: var(--ink-mid);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ----- タグライン ----- */
+.tagline-block {
+  margin-bottom: var(--space-xl);
+  padding: var(--space-xl) 0;
+  text-align: center;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.tagline-title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.125rem, 3.5vw, 1.375rem);
+  font-weight: 500;
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  margin: 0 0 1rem;
+  color: var(--ink);
+}
+
+.tagline-sub {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+  margin: 0 0 1.5rem;
+}
+
+/* ----- フッター ----- */
+.footer {
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--line-soft);
+  text-align: center;
+}
+
+.footer-link {
+  display: inline-block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-mid);
+  margin-bottom: 0.5rem;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.footer-link:hover {
+  color: var(--ink);
+  border-bottom-color: var(--line);
+}
+
+.footer-store {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+  margin: 0 0 0.5rem;
+}
+
+.footer-presented {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  letter-spacing: 0.06em;
+  margin: 0 0 0.5rem;
+}
+
+.footer-credit {
+  font-size: 0.6875rem;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+  margin: 0 0 0.25rem;
+}
+
+.footer-text {
+  font-size: 0.6875rem;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+  margin: 0;
+}

@@ -31,8 +31,16 @@ function isBeamProblemForM(p: BeamProblem): boolean {
   return isBeamProblemWithDiagram(p);
 }
 
-/** 問題から曲げモーメントのサンプル点 { x [m], M [kN·m] } を取得。引張側を正（下側引張＝正）で統一。 */
-function getMSamplePoints(problem: BeamProblem): { x: number; M: number }[] {
+export type BMDVariant =
+  | "correct"
+  | "reversed"
+  | "straight_as_curve"
+  | "curve_as_straight"
+  | "peak_at_center"
+  | "peak_at_support";
+
+/** 正しいM分布のサンプル点を取得（getMSamplePointsの結果を加工しない） */
+function getCorrectMSamplePoints(problem: BeamProblem): { x: number; M: number }[] {
   const points: { x: number; M: number }[] = [];
   const n = 24;
 
@@ -128,9 +136,141 @@ function getMSamplePoints(problem: BeamProblem): { x: number; M: number }[] {
   return [];
 }
 
+/** バリアントに応じて誤ったM分布を返す（BMD形状選択問題用） */
+function applyBMDVariant(
+  points: { x: number; M: number }[],
+  problem: BeamProblem,
+  variant: BMDVariant
+): { x: number; M: number }[] {
+  if (variant === "correct") return points;
+
+  const n = points.length;
+  const L = points[n - 1]?.x ?? problem.L;
+  const totalLength =
+    problem.structure === "overhang" && problem.overhangLength != null
+      ? problem.L + problem.overhangLength
+      : problem.L;
+
+  if (variant === "reversed") {
+    return points.map(({ x, M }) => ({ x, M: -M }));
+  }
+
+  if (variant === "straight_as_curve") {
+    if (points.length < 2) return points;
+    const m0 = points[0]!.M;
+    const mL = points[n - 1]!.M;
+    return points.map(({ x }) => ({
+      x,
+      M: m0 + (mL - m0) * (x / L),
+    }));
+  }
+
+  if (variant === "curve_as_straight") {
+    if (problem.type !== "concentrated" || points.length < 2) return points;
+    const maxM = Math.max(...points.map((p) => p.M));
+    const peakX = points.find((p) => p.M >= maxM - 0.01)?.x ?? L / 2;
+    return points.map(({ x }) => {
+      const t = x / L;
+      const tPeak = peakX / L;
+      const parabola = 4 * maxM * (t * (1 - t)) / (4 * tPeak * (1 - tPeak) || 1);
+      return { x, M: Math.max(0, parabola) };
+    });
+  }
+
+  if (variant === "peak_at_center") {
+    if (problem.type !== "concentrated" || points.length < 2) return points;
+    const maxM = Math.max(...points.map((p) => Math.abs(p.M)));
+    const mid = L / 2;
+    return points.map(({ x }) => ({
+      x,
+      M: maxM * (1 - Math.abs(x - mid) / (L / 2)),
+    }));
+  }
+
+  if (variant === "peak_at_support") {
+    if (problem.structure === "cantilever") {
+      const maxM = Math.max(...points.map((p) => Math.abs(p.M)));
+      return points.map(({ x }) => ({ x, M: maxM * (1 - x / L) }));
+    }
+    if (problem.structure === "simple") {
+      const maxM = Math.max(...points.map((p) => Math.abs(p.M)));
+      return points.map(({ x }) => ({ x, M: maxM * (1 - x / L) }));
+    }
+  }
+
+  return points;
+}
+
+/** 問題とバリアントから曲げモーメントのサンプル点を取得 */
+export function getMSamplePointsWithVariant(
+  problem: BeamProblem,
+  variant: BMDVariant
+): { x: number; M: number }[] {
+  const correct = getCorrectMSamplePoints(problem);
+  return applyBMDVariant(correct, problem, variant);
+}
+
+/** 問題から曲げモーメントのサンプル点を取得（後方互換） */
+function getMSamplePoints(problem: BeamProblem): { x: number; M: number }[] {
+  return getCorrectMSamplePoints(problem);
+}
+
 type Props = {
   problem: BeamProblem;
 };
+
+/** BMD形状選択問題用。1つのバリアントを描画（コンパクト版） */
+export function BMDChoiceOption({
+  problem,
+  variant,
+  compact,
+}: {
+  problem: BeamProblem;
+  variant: BMDVariant;
+  compact?: boolean;
+}) {
+  const points = getMSamplePointsWithVariant(problem, variant);
+  if (points.length === 0) return null;
+
+  const totalLength =
+    problem.structure === "overhang" && problem.overhangLength != null
+      ? problem.L + problem.overhangLength
+      : problem.L;
+  const scale = compact ? 20 : PIXELS_PER_METER;
+  const beamWidth = totalLength * scale;
+  const marginH = compact ? 20 : MARGIN_H;
+  const chartH = compact ? 40 : CHART_HEIGHT;
+  const svgWidth = beamWidth + 2 * marginH;
+  const svgHeight = chartH + 8;
+  const xLeft = marginH;
+  const zeroY = chartH / 2;
+
+  const maxAbsM = Math.max(...points.map((p) => Math.abs(p.M)), 1);
+  const scaleM = Math.min(20 / maxAbsM, (chartH / 2 - 4) / maxAbsM);
+
+  const polyPoints = points
+    .map(({ x, M }) => {
+      const px = xLeft + (x / totalLength) * beamWidth;
+      const py = zeroY + M * scaleM;
+      return `${px},${py}`;
+    })
+    .join(" ");
+
+  const zeroXLeft = xLeft;
+  const zeroXRight = xLeft + beamWidth;
+
+  return (
+    <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
+      <Line x1={zeroXLeft} y1={zeroY} x2={zeroXRight} y2={zeroY} stroke="#999" strokeWidth={1} strokeDasharray="3,2" />
+      <Polygon
+        points={`${zeroXLeft},${zeroY} ${polyPoints} ${zeroXRight},${zeroY}`}
+        fill="rgba(25, 118, 210, 0.2)"
+        stroke="#1976d2"
+        strokeWidth={1}
+      />
+    </Svg>
+  );
+}
 
 /** 曲げモーメント図（解説用）。梁の下に M の分布を折れ線で表示。引張側を正。 */
 export function BeamMDiagram({ problem }: Props) {

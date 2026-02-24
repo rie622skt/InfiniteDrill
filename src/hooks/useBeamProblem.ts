@@ -1181,6 +1181,81 @@ function generateCantileverDistributed(difficulty?: Difficulty): BeamProblemDist
   return { type: "distributed", structure: "cantilever", L, w, target, answer, choices, explanation };
 }
 
+type BMDWrongVariant = "reversed" | "straight_as_curve" | "curve_as_straight" | "peak_at_center" | "peak_at_support";
+
+/** BMD形状選択問題を生成。中級・上級向け。単純梁・片持ち梁の集中/等分布のいずれか。 */
+function generateBMDShapeProblem(
+  category: "simple-concentrated" | "simple-distributed" | "cantilever-concentrated" | "cantilever-distributed",
+  difficulty?: Difficulty
+): BeamProblem {
+  const wrongVariantPool: BMDWrongVariant[] = [];
+  let base: BeamProblemConcentrated | BeamProblemDistributed;
+
+  if (category === "simple-concentrated") {
+    const L = L_VALUES[Math.floor(Math.random() * L_VALUES.length)];
+    const aOptions = A_BY_L[L] ?? [L / 2];
+    const a = aOptions[Math.floor(Math.random() * aOptions.length)];
+    const b = L - a;
+    const P = P_VALUES[Math.floor(Math.random() * P_VALUES.length)];
+    wrongVariantPool.push("reversed", "curve_as_straight", "peak_at_center");
+    base = { type: "concentrated", structure: "simple", L, a, b, P, target: "BMD_shape", answer: 0, choices: [], explanation: "" };
+  } else if (category === "simple-distributed") {
+    const L = L_SIMPLE_DISTRIBUTED[Math.floor(Math.random() * L_SIMPLE_DISTRIBUTED.length)];
+    const w = W_VALUES[Math.floor(Math.random() * W_VALUES.length)];
+    wrongVariantPool.push("reversed", "straight_as_curve", "peak_at_support");
+    base = { type: "distributed", structure: "simple", L, w, target: "BMD_shape", answer: 0, choices: [], explanation: "" };
+  } else if (category === "cantilever-concentrated") {
+    const L = L_CANTILEVER[Math.floor(Math.random() * L_CANTILEVER.length)];
+    const aOptions = A_CANTILEVER_BY_L[L] ?? [L];
+    const a = aOptions[Math.floor(Math.random() * aOptions.length)];
+    const b = L - a;
+    const P = P_VALUES[Math.floor(Math.random() * P_VALUES.length)];
+    wrongVariantPool.push("reversed", "peak_at_support");
+    base = { type: "concentrated", structure: "cantilever", L, a, b, P, target: "BMD_shape", answer: 0, choices: [], explanation: "" };
+  } else {
+    const L = L_CANTILEVER_DISTRIBUTED[Math.floor(Math.random() * L_CANTILEVER_DISTRIBUTED.length)];
+    const w = W_VALUES[Math.floor(Math.random() * W_VALUES.length)];
+    wrongVariantPool.push("reversed", "straight_as_curve", "peak_at_support");
+    base = { type: "distributed", structure: "cantilever", L, w, target: "BMD_shape", answer: 0, choices: [], explanation: "" };
+  }
+
+  const wrong3: BMDWrongVariant[] = [];
+  const pool = [...wrongVariantPool];
+  while (wrong3.length < 3 && pool.length > 0) {
+    const idx = Math.floor(Math.random() * pool.length);
+    wrong3.push(pool.splice(idx, 1)[0]!);
+  }
+  const variants = ["correct" as const, ...wrong3];
+  const shuffled = shuffle([...variants]);
+  const correctIndex = shuffled.indexOf("correct");
+
+  const label =
+    category === "simple-concentrated"
+      ? "単純梁・中央集中荷重"
+      : category === "simple-distributed"
+        ? "単純梁・等分布荷重"
+        : category === "cantilever-concentrated"
+          ? "片持ち梁・集中荷重"
+          : "片持ち梁・等分布荷重";
+
+  const explanation = [
+    `この${label}の曲げモーメント図（BMD）は、荷重の位置と支持条件から決まります。`,
+    "集中荷重では折れ線（三角形）、等分布荷重では2次曲線（放物線）になります。",
+    "下側引張を正として描きます。",
+  ].join("\n");
+
+  return {
+    ...base,
+    target: "BMD_shape",
+    answer: correctIndex,
+    choices: [0, 1, 2, 3],
+    explanation,
+    problemCategory: category,
+    customQuestion: "正しい曲げモーメント図（BMD）はどれか。",
+    bmdShapeVariants: shuffled,
+  };
+}
+
 /** 問題のカテゴリキーを一意に決める */
 function getCategoryFromProblem(problem: BeamProblem): ProblemCategory {
   if (problem.problemCategory) {
@@ -1660,14 +1735,34 @@ export function useBeamProblem() {
   const generateProblemByCategory = useCallback(
     (cat: ProblemCategory, difficulty?: Difficulty): BeamProblem => {
       switch (cat) {
-        case "simple-concentrated":
+        case "simple-concentrated": {
+          const eff = difficulty ?? "intermediate";
+          if ((eff === "intermediate" || eff === "advanced") && Math.random() < 0.15) {
+            return generateBMDShapeProblem("simple-concentrated", difficulty);
+          }
           return generateConcentrated(difficulty);
-        case "simple-distributed":
+        }
+        case "simple-distributed": {
+          const eff = difficulty ?? "intermediate";
+          if ((eff === "intermediate" || eff === "advanced") && Math.random() < 0.15) {
+            return generateBMDShapeProblem("simple-distributed", difficulty);
+          }
           return generateDistributed(difficulty);
-        case "cantilever-concentrated":
+        }
+        case "cantilever-concentrated": {
+          const eff = difficulty ?? "intermediate";
+          if ((eff === "intermediate" || eff === "advanced") && Math.random() < 0.15) {
+            return generateBMDShapeProblem("cantilever-concentrated", difficulty);
+          }
           return generateCantileverConcentrated(difficulty);
-        case "cantilever-distributed":
+        }
+        case "cantilever-distributed": {
+          const eff = difficulty ?? "intermediate";
+          if ((eff === "intermediate" || eff === "advanced") && Math.random() < 0.15) {
+            return generateBMDShapeProblem("cantilever-distributed", difficulty);
+          }
           return generateCantileverDistributed(difficulty);
+        }
         case "overhang-concentrated":
           return generateOverhangConcentrated();
         case "overhang-distributed":

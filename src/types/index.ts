@@ -16,7 +16,17 @@ export type ProblemTarget =
   | "y_g"
   | "frame_M_beam"
   | "frame_M_left"
-  | "frame_M_right";
+  | "frame_M_right"
+  /** ラーメン: 支点Aの水平反力 H_A [kN] */
+  | "frame_H_left"
+  /** ラーメン: 支点Bの鉛直反力 V_B [kN] */
+  | "frame_V_B"
+  /** 短柱の偏心荷重問題で用いる偏心距離 e [mm] */
+  | "eccentric_e"
+  /** せん断応力度 τ [N/mm²] */
+  | "tau"
+  /** 曲げモーメント図（BMD）の正しい形状を4択から選ぶ */
+  | "BMD_shape";
 
 /** 構造: 単純梁 / 片持ち梁 / 張り出し梁 */
 export type BeamStructure = "simple" | "cantilever" | "overhang";
@@ -138,6 +148,10 @@ type BeamProblemBase = {
   axialForceKN?: number;
   /** 複合応力度で圧縮側を問うとき true。未指定または false は引張側 σ = N/A + M/Z */
   sigmaCompressionSide?: boolean;
+  /** 短柱の偏心荷重問題: モード（最大圧縮応力度 or 引張が生じない限界偏心 e） */
+  shortColumnMode?: "eccentric-max-compression" | "no-tension-limit";
+  /** 短柱の偏心荷重問題: 与えられた偏心距離 e [mm]（最大圧縮応力度問題など、図や条件で e を与える場合に使用） */
+  eccentricEMm?: number;
   /** 張り出し梁: 支点Bから先の張り出し長さ c [m]。structure === 'overhang' のとき必須 */
   overhangLength?: number;
   /** 静定ラーメン: スパン L [m]。problemCategory === 'frame' のとき必須 */
@@ -154,6 +168,8 @@ type BeamProblemBase = {
   frameHorizontalP?: number;
   /** 問題文を上書き（たわみの倍率問題など）。指定時はこれをそのまま表示 */
   customQuestion?: string;
+  /** BMD形状選択問題（target === 'BMD_shape' のとき必須）。4つの図のバリアント。正解は 'correct' */
+  bmdShapeVariants?: ("correct" | "reversed" | "straight_as_curve" | "curve_as_straight" | "peak_at_center" | "peak_at_support")[];
   /** たわみの大小比較（δ_A/δ_B）問題。指定時は梁A・梁Bの2本を表示し、比を問う（中級・上級向け） */
   deflectionComparison?: {
     structureA: "simple" | "cantilever";

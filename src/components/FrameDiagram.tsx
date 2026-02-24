@@ -68,27 +68,29 @@ export function FrameDiagram({ frameL, frameH, frameP, frameW, frameHorizontalP,
         <Line x1={xLeft} y1={yBeam} x2={xLeft} y2={yBottom} stroke="#333" strokeWidth={2} />
         {/* 右柱 */}
         <Line x1={xRight} y1={yBeam} x2={xRight} y2={yBottom} stroke="#333" strokeWidth={2} />
-        {/* 梁（ヒンジ位置で分割） */}
-        <Line x1={xLeft} y1={yBeam} x2={hingeX} y2={yBeam} stroke="#333" strokeWidth={2} />
-        <Line x1={hingeX} y1={yBeam} x2={xRight} y2={yBeam} stroke="#333" strokeWidth={2} />
-        {/* ヒンジ（問題で指定した位置に円を描画） */}
+        {/* 梁（ヒンジ位置で切断。部材が切れてピンで繋がることを示すため、円内を貫通させない） */}
+        <Line x1={xLeft} y1={yBeam} x2={hingeX - HINGE_R - 1} y2={yBeam} stroke="#333" strokeWidth={2} />
+        <Line x1={hingeX + HINGE_R + 1} y1={yBeam} x2={xRight} y2={yBeam} stroke="#333" strokeWidth={2} />
+        {/* ヒンジ（部材の切断点。丸の中は空白で梁線を貫通させない） */}
         <Circle cx={hingeX} cy={yBeam} r={HINGE_R} fill="#fff" stroke="#333" strokeWidth={1.5} />
-        <Line x1={hingeX - HINGE_R} y1={yBeam} x2={hingeX + HINGE_R} y2={yBeam} stroke="#333" strokeWidth={1} />
-        {/* 左ピン */}
+        {/* 左ピン（頂点＝回転中心が柱脚と一致） */}
         <Polygon points={pinPoints(xLeft, yBottom)} fill="#555" stroke="#333" strokeWidth={1} />
+        <Line x1={xLeft - 12} y1={ySupportBottom} x2={xLeft + 12} y2={ySupportBottom} stroke="#333" strokeWidth={1} />
         {/* 右ピン */}
         <Polygon points={pinPoints(xRight, yBottom)} fill="#555" stroke="#333" strokeWidth={1} />
+        <Line x1={xRight - 12} y1={ySupportBottom} x2={xRight + 12} y2={ySupportBottom} stroke="#333" strokeWidth={1} />
         {/* 荷重: 水平 P（左柱） / 集中 P（梁中央）/ 等分布 w */}
         {isHorizontal ? (
           <>
-            <Line x1={xLeft} y1={yBeam + 10} x2={xLeft + 32} y2={yBeam + 10} stroke="#333" strokeWidth={2} />
+            {/* 左外側から角に向かって刺さるように描画（梁線と同化しない） */}
+            <Line x1={xLeft - 44} y1={yBeam + 8} x2={xLeft - 4} y2={yBeam + 8} stroke="#333" strokeWidth={2} />
             <Polygon
-              points={`${xLeft + 32},${yBeam + 10} ${xLeft + 32 - ARROW_HEAD},${yBeam + 10 - ARROW_HEAD} ${xLeft + 32 - ARROW_HEAD},${yBeam + 10 + ARROW_HEAD}`}
+              points={`${xLeft - 4},${yBeam + 8} ${xLeft - 4 - ARROW_HEAD},${yBeam + 8 - ARROW_HEAD} ${xLeft - 4 - ARROW_HEAD},${yBeam + 8 + ARROW_HEAD}`}
               fill="#333"
               stroke="#333"
               strokeWidth={1}
             />
-            <Text x={xLeft + 38} y={yBeam + 20} fill="#333" fontSize={12} textAnchor="start" fontWeight="bold">
+            <Text x={xLeft - 50} y={yBeam + 18} fill="#333" fontSize={12} textAnchor="end" fontWeight="bold">
               P={frameHorizontalP} kN
             </Text>
           </>
@@ -139,14 +141,18 @@ export function FrameDiagram({ frameL, frameH, frameP, frameW, frameHorizontalP,
             );
           })()
         )}
-        {/* 寸法: 高さ h（L= と同スタイル。ラベルを寸法線から十分離して被り防止） */}
+        {/* 寸法: 高さ h（梁上面〜ピン回転中心。補助線は柱芯から伸ばす） */}
+        <Line x1={xLeft} y1={yBeam} x2={dimHLineX} y2={yBeam} stroke="#999" strokeWidth={0.8} strokeDasharray="2,2" />
+        <Line x1={xLeft} y1={yBottom} x2={dimHLineX} y2={yBottom} stroke="#999" strokeWidth={0.8} strokeDasharray="2,2" />
         <Line x1={dimHLineX} y1={yBeam} x2={dimHLineX} y2={yBottom} stroke="#333" strokeWidth={1} strokeDasharray="4,2" />
         <Line x1={dimHLineX - DIM_TICK / 2} y1={yBeam} x2={dimHLineX + DIM_TICK / 2} y2={yBeam} stroke="#333" strokeWidth={1} />
         <Line x1={dimHLineX - DIM_TICK / 2} y1={yBottom} x2={dimHLineX + DIM_TICK / 2} y2={yBottom} stroke="#333" strokeWidth={1} />
         <Text x={dimHLineX - 34} y={(yBeam + yBottom) / 2 + 5} fill="#333" fontSize={12} textAnchor="end">
           h={frameH}{" "}m
         </Text>
-        {/* 寸法: スパン L（支点より下に配置して被り防止） */}
+        {/* 寸法: スパン L（ピン回転中心間。補助線は頂点から寸法線へ） */}
+        <Line x1={xLeft} y1={yBottom} x2={xLeft} y2={yBottom + DIM_L_VERTICAL} stroke="#999" strokeWidth={0.8} strokeDasharray="2,2" />
+        <Line x1={xRight} y1={yBottom} x2={xRight} y2={yBottom + DIM_L_VERTICAL} stroke="#999" strokeWidth={0.8} strokeDasharray="2,2" />
         <Line x1={xLeft} y1={yBottom + DIM_L_VERTICAL} x2={xRight} y2={yBottom + DIM_L_VERTICAL} stroke="#333" strokeWidth={1} strokeDasharray="4,2" />
         <Line x1={xLeft} y1={yBottom + DIM_L_VERTICAL - DIM_TICK / 2} x2={xLeft} y2={yBottom + DIM_L_VERTICAL + DIM_TICK / 2} stroke="#333" strokeWidth={1} />
         <Line x1={xRight} y1={yBottom + DIM_L_VERTICAL - DIM_TICK / 2} x2={xRight} y2={yBottom + DIM_L_VERTICAL + DIM_TICK / 2} stroke="#333" strokeWidth={1} />

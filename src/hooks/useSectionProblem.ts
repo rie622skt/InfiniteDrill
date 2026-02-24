@@ -5,6 +5,10 @@ function eqOrApprox(value: number): "=" | "≒" {
   return Math.abs(value - Math.round(value)) < 1e-9 ? "=" : "≒";
 }
 
+function isInteger(value: number): boolean {
+  return Math.abs(value - Math.round(value)) < 1e-9;
+}
+
 // 断面寸法の候補（問題バリエーション拡張用）
 // - 10 mm 刻みを基本に、実務でよく出るオーダーのサイズを網羅
 // - 後段の SECTION_PAIRS で「Z, I が整数になる組み合わせ」のみ採用する
@@ -50,7 +54,12 @@ const HOLLOW_SECTION_QUADS: readonly [number, number, number, number][] = (() =>
   return quads.length > 0 ? quads : [[200, 200, 100, 100]]; // fallback 1組
 })();
 
-/** H形断面（b, h, tf, tw）で I と Z がともに整数になる組み合わせのみ。I = (b*h³−(b−tw)*(h−2*tf)³)/12, Z = 2*I/h。本試験同様「割り切れる値」だけ出題し丸めない */
+/** 梁スパン・荷重の共通定数（SHEAR_STRESS_* で使用するため先行宣言） */
+const SIMPLE_L_VALUES_M = [4, 6, 8] as const;
+const CANTILEVER_L_VALUES_M = [3, 4, 5] as const;
+const P_VALUES_KN = [10, 20, 24, 30, 40, 48, 60] as const;
+
+/** H形断面（b, h, tf, tw）で I と Z がともに整数になる組み合わせ（SHEAR_STRESS_H で使用するため先行宣言） */
 const H_SHAPE_QUADS: readonly [number, number, number, number][] = (() => {
   const quads: [number, number, number, number][] = [];
   const B = [100, 120, 150, 200] as const;
@@ -78,17 +87,231 @@ const H_SHAPE_QUADS: readonly [number, number, number, number][] = (() => {
   return quads.length > 0 ? quads : [[200, 240, 12, 8]];
 })();
 
+/** 短柱・偏心荷重（最大圧縮応力度 σ_c）の候補セット。
+ * Z, A, σ_c がきれいな整数になる組み合わせのみ採用する。
+ */
+const SHORT_COLUMN_MAX_COMP_CANDIDATES: readonly {
+  bmm: number;
+  hmm: number;
+  PkN: number;
+  emm: number;
+  A: number;
+  Z: number;
+  sigmaC: number;
+}[] = (() => {
+  const out: {
+    bmm: number;
+    hmm: number;
+    PkN: number;
+    emm: number;
+    A: number;
+    Z: number;
+    sigmaC: number;
+  }[] = [];
+  const P_VALUES_KN = [100, 150, 200, 250, 300] as const;
+  const E_VALUES_MM = [10, 20, 30, 40, 60] as const;
+
+  for (const [b, h] of SECTION_PAIRS) {
+    const A = b * h;
+    // 偏心は幅 b 方向（横方向）とし、そのときの曲げは「b を2乗する」軸まわり。
+    // よって Z は Z = h×b²/6 とする。
+    const Z = (h * b * b) / 6;
+    for (const PkN of P_VALUES_KN) {
+      const N_N = PkN * 1000;
+      const sigmaAxial = N_N / A;
+      for (const emm of E_VALUES_MM) {
+        const sigmaBend = (N_N * emm) / Z;
+        const sigmaCExact = sigmaAxial + sigmaBend;
+        if (!Number.isFinite(sigmaCExact) || sigmaCExact <= 0) continue;
+        if (!isInteger(sigmaCExact)) continue;
+        const sigmaC = Math.round(sigmaCExact);
+        out.push({ bmm: b, hmm: h, PkN, emm, A, Z, sigmaC });
+      }
+    }
+  }
+  return out;
+})();
+
+/** せん断応力度 τ_max（長方形断面）の候補。τ_max = 3Q/(2A) = 1.5×Q/A。Q [kN], A [mm²], τ [N/mm²]。
+ * 単純梁中央集中: Q = P/2。片持ち: Q = P。
+ */
+const SHEAR_STRESS_RECT_CANDIDATES: readonly {
+  L: number;
+  P: number;
+  a: number;
+  bSpan: number;
+  Q: number;
+  useCantilever: boolean;
+  bmm: number;
+  hmm: number;
+  A: number;
+  tau: number;
+}[] = (() => {
+  const out: {
+    L: number;
+    P: number;
+    a: number;
+    bSpan: number;
+    Q: number;
+    useCantilever: boolean;
+    bmm: number;
+    hmm: number;
+    A: number;
+    tau: number;
+  }[] = [];
+  for (const [bmm, hmm] of SECTION_PAIRS) {
+    const A = bmm * hmm;
+    // 片持ち: Q = P
+    for (const L of CANTILEVER_L_VALUES_M) {
+      for (const P of P_VALUES_KN) {
+        const Q = P;
+        const tauExact = (1.5 * Q * 1000) / A;
+        if (!Number.isFinite(tauExact) || tauExact <= 0) continue;
+        if (!isInteger(tauExact)) continue;
+        out.push({
+          L,
+          P,
+          a: L,
+          bSpan: 0,
+          Q,
+          useCantilever: true,
+          bmm,
+          hmm,
+          A,
+          tau: Math.round(tauExact),
+        });
+      }
+    }
+    // 単純梁中央集中: Q = P/2 at support
+    for (const L of SIMPLE_L_VALUES_M) {
+      for (const P of P_VALUES_KN) {
+        const Q = P / 2;
+        const tauExact = (1.5 * Q * 1000) / A;
+        if (!Number.isFinite(tauExact) || tauExact <= 0) continue;
+        if (!isInteger(tauExact)) continue;
+        out.push({
+          L,
+          P,
+          a: L / 2,
+          bSpan: L / 2,
+          Q,
+          useCantilever: false,
+          bmm,
+          hmm,
+          A,
+          tau: Math.round(tauExact),
+        });
+      }
+    }
+  }
+  return out;
+})();
+
+/** せん断応力度 τ（H形・ウェブ負担）の候補。τ = Q/(t_w×h_w)。Q [kN], t_w, h_w [mm], τ [N/mm²]。
+ * せん断力はウェブのみで負担すると仮定。
+ */
+const SHEAR_STRESS_H_CANDIDATES: readonly {
+  L: number;
+  P: number;
+  a: number;
+  bSpan: number;
+  Q: number;
+  useCantilever: boolean;
+  bmm: number;
+  hmm: number;
+  tf: number;
+  tw: number;
+  hw: number;
+  tau: number;
+}[] = (() => {
+  const out: {
+    L: number;
+    P: number;
+    a: number;
+    bSpan: number;
+    Q: number;
+    useCantilever: boolean;
+    bmm: number;
+    hmm: number;
+    tf: number;
+    tw: number;
+    hw: number;
+    tau: number;
+  }[] = [];
+  for (const [bmm, hmm, tf, tw] of H_SHAPE_QUADS) {
+    const hw = hmm - 2 * tf;
+    const areaWeb = tw * hw;
+    // 片持ち: Q = P
+    for (const L of CANTILEVER_L_VALUES_M) {
+      for (const P of P_VALUES_KN) {
+        const Q = P;
+        const tauExact = (Q * 1000) / areaWeb;
+        if (!Number.isFinite(tauExact) || tauExact <= 0) continue;
+        if (!isInteger(tauExact)) continue;
+        out.push({
+          L,
+          P,
+          a: L,
+          bSpan: 0,
+          Q,
+          useCantilever: true,
+          bmm,
+          hmm,
+          tf,
+          tw,
+          hw,
+          tau: Math.round(tauExact),
+        });
+      }
+    }
+    // 単純梁中央集中: Q = P/2
+    for (const L of SIMPLE_L_VALUES_M) {
+      for (const P of P_VALUES_KN) {
+        const Q = P / 2;
+        const tauExact = (Q * 1000) / areaWeb;
+        if (!Number.isFinite(tauExact) || tauExact <= 0) continue;
+        if (!isInteger(tauExact)) continue;
+        out.push({
+          L,
+          P,
+          a: L / 2,
+          bSpan: L / 2,
+          Q,
+          useCantilever: false,
+          bmm,
+          hmm,
+          tf,
+          tw,
+          hw,
+          tau: Math.round(tauExact),
+        });
+      }
+    }
+  }
+  return out;
+})();
+
+/** 短柱・偏心荷重（引張が生じない限界偏心 e_max = Z/A）の候補セット。
+ * 図の偏心方向（幅 b 方向）に合わせ、b/6 が整数になる組み合わせのみ採用する。
+ */
+const SHORT_COLUMN_CORE_CANDIDATES: readonly {
+  bmm: number;
+  hmm: number;
+}[] = (() => {
+  const out: { bmm: number; hmm: number }[] = [];
+  for (const [b, h] of SECTION_PAIRS) {
+    if (b % 6 !== 0) continue;
+    out.push({ bmm: b, hmm: h });
+  }
+  return out;
+})();
+
 /** T形断面（上フランジ＋中央ウェブ）用の寸法 (b, h, tf, tw)。図心 y_g と図心軸まわり I がきれいな整数になるよう手動で選定。 */
 const T_SHAPE_QUADS: readonly [number, number, number, number][] = [
   // b [mm], h [mm], tf [mm], tw [mm]
   [180, 200, 20, 20],
   [60, 80, 20, 20],
 ];
-
-const SIMPLE_L_VALUES_M = [4, 6, 8] as const;
-/** 片持ちは L=2 を除外（集中 P×L と等分布 wL²/2 の数値衝突を防ぐ） */
-const CANTILEVER_L_VALUES_M = [3, 4, 5] as const;
-const P_VALUES_KN = [10, 20, 24, 30, 40, 48, 60] as const;
 
 function pickRandom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -302,10 +525,14 @@ function generateLShapeICentroidProblem(): BeamProblem {
   };
 }
 
-/** 断面の性質（Z, I）の問題を生成。上級では中空・図心・図心軸まわりIを出題する場合あり */
+/** 断面の性質（Z, I）の問題を生成。中級ではT字（y_g, I）を出題、上級では中空・L形・図心軸まわりI等も出題 */
 export function generateSectionPropertiesProblem(
   difficulty: Difficulty
 ): BeamProblem {
+  // 中級: T字断面（y_g または I）を約25%で出題。本試験の図心計算の主役。
+  if (difficulty === "intermediate" && T_SHAPE_QUADS.length > 0 && Math.random() < 0.25) {
+    return generateTShapeSectionProblem();
+  }
   if (difficulty === "advanced") {
     const r = Math.random();
     if (r < 0.15) return generateLShapeICentroidProblem();
@@ -889,6 +1116,288 @@ function generateCombinedStressProblem(): BeamProblem {
   };
 }
 
+/** 短柱の偏心荷重（最大圧縮応力度 σ_c）問題を1問生成 */
+function generateShortColumnMaxCompressionProblem(): BeamProblem | null {
+  if (SHORT_COLUMN_MAX_COMP_CANDIDATES.length === 0) return null;
+  const c = SHORT_COLUMN_MAX_COMP_CANDIDATES[Math.floor(Math.random() * SHORT_COLUMN_MAX_COMP_CANDIDATES.length)];
+  const { bmm, hmm, PkN, emm, A, Z, sigmaC } = c;
+
+  const P_N = PkN * 1000;
+  const sigmaAxial = P_N / A;
+  const sigmaBend = (P_N * emm) / Z;
+  const sigmaAxialR = Math.round(sigmaAxial);
+  const sigmaBendR = Math.round(sigmaBend);
+
+  const wrongCandidatesRaw = [
+    sigmaAxialR, // 軸力のみ
+    sigmaBendR, // 曲げのみ
+    sigmaAxialR - sigmaBendR, // 最小圧縮（または引張）側
+    sigmaC * 2,
+    Math.round(sigmaC / 2),
+  ];
+  const wrongCandidates = wrongCandidatesRaw.filter((v) => v > 0);
+  const chosenWrong = pickWrongChoicesAllowNegative(wrongCandidates, sigmaC, 3);
+  let choices = [...chosenWrong, sigmaC];
+  if (choices.length < 4) {
+    const fallbackPool = [
+      sigmaC + 1,
+      sigmaC - 1,
+      sigmaC + 2,
+      sigmaC - 2,
+      sigmaC + 3,
+      sigmaC - 3,
+    ].filter((v) => v > 0 && Math.abs(v - sigmaC) > 1);
+    for (const v of fallbackPool) {
+      if (choices.length >= 4) break;
+      if (!choices.includes(v)) choices.push(v);
+    }
+  }
+  choices = Array.from(new Set(choices)).sort((a, b) => a - b);
+
+  const explanationLines = [
+    "短柱に偏心荷重 P が作用するとき、断面の応力度は σ = N/A ± M/Z で表されます。",
+    "最大圧縮応力度は、軸力による圧縮と曲げ圧縮が同じ側に重なる点で生じます（σ_c = N/A + M/Z）。",
+    "① 断面積 A と断面係数 Z",
+    `A = b×h = ${bmm}×${hmm} = ${A} mm²`,
+    `Z = h×b²/6 = ${hmm}×${bmm}²/6 = ${Z} mm³`,
+    "",
+    "② 軸力による応力度",
+    `N = P = ${P_N} N`,
+    `σ_軸 = N/A = ${P_N} / ${A} = ${sigmaAxialR} N/mm²`,
+    "",
+    "③ 曲げによる応力度",
+    `M = P×e = ${P_N}×${emm} = ${P_N * emm} N·mm`,
+    `σ_曲げ = M/Z = ${P_N * emm} / ${Z} = ${sigmaBendR} N/mm²`,
+    "",
+    "④ 最大圧縮応力度",
+    `σ_c = σ_軸 + σ_曲げ = ${sigmaAxialR} + ${sigmaBendR} = ${sigmaC} N/mm²`,
+  ];
+
+  const L_dummy = 1;
+
+  return {
+    type: "concentrated",
+    structure: "simple",
+    L: L_dummy,
+    P: PkN,
+    a: L_dummy / 2,
+    b: L_dummy / 2,
+    target: "sigma",
+    answer: sigmaC,
+    choices,
+    explanation: explanationLines.join("\n"),
+    problemCategory: "bending-stress" as ProblemCategory,
+    sectionBmm: bmm,
+    sectionHmm: hmm,
+    sectionShape: "rectangle",
+    shortColumnMode: "eccentric-max-compression",
+    eccentricEMm: emm,
+    customQuestion:
+      "図の短柱に偏心荷重 P が作用するとき、断面に生じる最大の圧縮応力度 σ_c [N/mm²] を求めよ。ただし圧縮を正とする。",
+  };
+}
+
+/** 短柱の偏心荷重（引張が生じない限界偏心距離 e）問題を1問生成 */
+function generateShortColumnCoreLimitProblem(): BeamProblem | null {
+  if (SHORT_COLUMN_CORE_CANDIDATES.length === 0) return null;
+  const c =
+    SHORT_COLUMN_CORE_CANDIDATES[Math.floor(Math.random() * SHORT_COLUMN_CORE_CANDIDATES.length)];
+  const { bmm, hmm } = c;
+
+  const A = bmm * hmm;
+  // 偏心は幅 b 方向（横方向）とし、そのときの曲げは「b を2乗する」軸まわり。
+  // よって Z は Z = h×b²/6 で、Z/A = b/6 となる。
+  const Z = (hmm * bmm * bmm) / 6;
+  const eMax = Z / A; // = b/6（長方形断面）
+
+  const wrongCandidatesRaw = [bmm / 4, bmm / 8, bmm / 3, bmm / 2, bmm / 10, (2 * bmm) / 3];
+  const wrongCandidates = wrongCandidatesRaw
+    .filter((v) => v > 0 && Math.abs(v - eMax) > 1e-6)
+    .map((v) => Math.round(v));
+  const uniqWrong = Array.from(new Set(wrongCandidates)).filter(
+    (v) => Math.abs(v - eMax) > 1e-6
+  );
+  let choices: number[] = [...uniqWrong.slice(0, 3), Math.round(eMax)];
+  choices = Array.from(new Set(choices));
+  if (choices.length < 4) {
+    const base = Math.round(eMax);
+    const fallbackPool = [base + 5, base - 5, base + 10, base - 10].filter(
+      (v) => v > 0 && v !== base
+    );
+    for (const v of fallbackPool) {
+      if (choices.length >= 4) break;
+      if (!choices.includes(v)) choices.push(v);
+    }
+  }
+  choices = choices.sort((a, b) => a - b);
+
+  const explanationLines = [
+    "短柱に偏心荷重 P が作用するとき、断面の応力度は σ = N/A ± M/Z で表されます。",
+    "引張応力度が生じない条件は、圧縮側で σ = N/A − M/Z ≥ 0 となることです。",
+    "① 断面積 A と断面係数 Z",
+    `A = b×h = ${bmm}×${hmm} = ${A} mm²`,
+    `Z = h×b²/6 = ${hmm}×${bmm}²/6 = ${Z} mm³`,
+    "",
+    "② 引張が生じない条件",
+    "σ = N/A − M/Z ≥ 0",
+    "N/A − (N×e)/Z ≥ 0",
+    "N/A ≥ (N×e)/Z",
+    "e ≤ Z/A",
+    "",
+    "③ 長方形断面では Z/A = (h×b²/6) / (b×h) = b/6 となるので、",
+    `e_max = Z/A = b/6 = ${bmm}/6 = ${eMax} mm`,
+  ];
+
+  const L_dummy = 1;
+  const PkN = 100;
+
+  return {
+    type: "concentrated",
+    structure: "simple",
+    L: L_dummy,
+    P: PkN,
+    a: L_dummy / 2,
+    b: L_dummy / 2,
+    target: "eccentric_e",
+    answer: Math.round(eMax),
+    choices,
+    explanation: explanationLines.join("\n"),
+    problemCategory: "bending-stress" as ProblemCategory,
+    sectionBmm: bmm,
+    sectionHmm: hmm,
+    sectionShape: "rectangle",
+    shortColumnMode: "no-tension-limit",
+    customQuestion:
+      "図の短柱において、断面に引張応力度が生じないための最大の偏心距離 e [mm] を求めよ。",
+  };
+}
+
+/** せん断応力度 τ_max（長方形断面）問題を1問生成。τ_max = 3Q/(2A) = 1.5×Q/A */
+function generateShearStressRectProblem(): BeamProblem | null {
+  if (SHEAR_STRESS_RECT_CANDIDATES.length === 0) return null;
+  const c = pickRandom(SHEAR_STRESS_RECT_CANDIDATES);
+  const { L, P, a, bSpan, Q, useCantilever, bmm, hmm, A, tau } = c;
+
+  const tauAvg = (Q * 1000) / A;
+  const wrongCandidates = [
+    tauAvg,
+    Math.round(tauAvg),
+    tau * 2,
+    Math.round(tau / 2),
+    Math.round((Q * 1000) / A),
+  ].filter((v) => v > 0 && Math.abs(v - tau) > 1e-6);
+  const chosenWrong = pickWrongChoices(wrongCandidates, tau, 3);
+  let choices = [...chosenWrong, tau];
+  if (choices.length < 4) {
+    const fallback = [tau + 1, tau - 1, tau + 2, tau - 2].filter(
+      (v) => v > 0 && !choices.includes(v)
+    );
+    for (const v of fallback) {
+      if (choices.length >= 4) break;
+      choices.push(v);
+    }
+  }
+  choices = Array.from(new Set(choices)).sort((a, b) => a - b);
+
+  const explanationLines = [
+    "長方形断面の最大せん断応力度は、平均せん断応力度の1.5倍になります。",
+    "τ_max = (3/2) × (Q/A) = 1.5 × (Q/A)",
+    "① 断面積 A",
+    `A = b×h = ${bmm}×${hmm} = ${A} mm²`,
+    "",
+    "② せん断力 Q（図の梁から）",
+    useCantilever
+      ? `片持ち梁の固定端付近では Q = P = ${P} kN = ${P * 1000} N`
+      : `単純梁中央集中荷重では支点付近のせん断力は Q = P/2 = ${P}/2 = ${Q} kN = ${Q * 1000} N`,
+    "",
+    "③ 最大せん断応力度",
+    `τ_max = 1.5 × (Q/A) = 1.5 × (${Q * 1000} / ${A}) = ${tau} N/mm²`,
+  ];
+
+  return {
+    type: "concentrated",
+    structure: useCantilever ? "cantilever" : "simple",
+    L,
+    P,
+    a,
+    b: bSpan,
+    target: "tau",
+    answer: tau,
+    choices,
+    explanation: explanationLines.join("\n"),
+    problemCategory: "bending-stress" as ProblemCategory,
+    sectionBmm: bmm,
+    sectionHmm: hmm,
+    sectionShape: "rectangle",
+    customQuestion:
+      "図の梁・断面において、断面に生じる最大せん断応力度 τ_max [N/mm²] を求めよ。",
+  };
+}
+
+/** せん断応力度 τ（H形・ウェブ負担）問題を1問生成。τ = Q/(t_w×h_w) */
+function generateShearStressHProblem(): BeamProblem | null {
+  if (SHEAR_STRESS_H_CANDIDATES.length === 0) return null;
+  const c = pickRandom(SHEAR_STRESS_H_CANDIDATES);
+  const { L, P, a, bSpan, Q, useCantilever, bmm, hmm, tf, tw, hw, tau } = c;
+
+  const areaWeb = tw * hw;
+  const wrongCandidates = [
+    Math.round((Q * 1000) / (bmm * hmm)),
+    Math.round((Q * 1000) / (bmm * hw)),
+    tau * 2,
+    Math.round(tau / 2),
+  ].filter((v) => v > 0 && Math.abs(v - tau) > 1e-6);
+  const chosenWrong = pickWrongChoices(wrongCandidates, tau, 3);
+  let choices = [...chosenWrong, tau];
+  if (choices.length < 4) {
+    const fallback = [tau + 1, tau - 1, tau + 2, tau - 2].filter(
+      (v) => v > 0 && !choices.includes(v)
+    );
+    for (const v of fallback) {
+      if (choices.length >= 4) break;
+      choices.push(v);
+    }
+  }
+  choices = Array.from(new Set(choices)).sort((a, b) => a - b);
+
+  const explanationLines = [
+    "H形断面では、せん断力はウェブ（縦の板）のみで負担すると仮定します。",
+    "τ = Q / (t_w × h_w)",
+    "① ウェブの有効断面積",
+    `h_w = h − 2×t_f = ${hmm} − 2×${tf} = ${hw} mm`,
+    `t_w × h_w = ${tw} × ${hw} = ${areaWeb} mm²`,
+    "",
+    "② せん断力 Q",
+    useCantilever
+      ? `片持ち梁では Q = P = ${P} kN = ${P * 1000} N`
+      : `単純梁中央集中荷重では Q = P/2 = ${Q} kN = ${Q * 1000} N`,
+    "",
+    "③ せん断応力度",
+    `τ = Q / (t_w × h_w) = ${Q * 1000} / ${areaWeb} = ${tau} N/mm²`,
+  ];
+
+  return {
+    type: "concentrated",
+    structure: useCantilever ? "cantilever" : "simple",
+    L,
+    P,
+    a,
+    b: bSpan,
+    target: "tau",
+    answer: tau,
+    choices,
+    explanation: explanationLines.join("\n"),
+    problemCategory: "bending-stress" as ProblemCategory,
+    sectionBmm: bmm,
+    sectionHmm: hmm,
+    sectionShape: "H-shape",
+    sectionTfMm: tf,
+    sectionTwMm: tw,
+    customQuestion:
+      "図のH形断面梁において、せん断力をウェブのみで負担すると仮定したとき、ウェブに生じるせん断応力度 τ [N/mm²] を求めよ。",
+  };
+}
+
 /** 単純梁 or 片持ち梁の集中荷重から曲げ応力度 σ を求める問題を生成。
  * 上級では複合応力度 σ = N/A + M/Z を出題する場合あり。 */
 export function generateBendingStressProblem(
@@ -898,14 +1407,42 @@ export function generateBendingStressProblem(
     return generateSectionPropertiesProblem("intermediate");
   }
 
-  // 中級・上級で複合応力度 σ = N/A ± M/Z を出題（発展D: 出題率を強化）
-  const combinedRate = difficulty === "advanced" ? 0.5 : 0.35;
+  // 中級・上級で複合応力度・短柱・せん断応力度を出題
+  const combinedRate = difficulty === "advanced" ? 0.35 : 0.25;
+  const shortColumnRate = difficulty === "advanced" ? 0.25 : 0.2;
+  const shearStressRate = difficulty === "advanced" ? 0.2 : 0.15;
   if (
     (difficulty === "intermediate" || difficulty === "advanced") &&
-    getCombinedStressCandidates().length > 0 &&
-    Math.random() < combinedRate
+    Math.random() < combinedRate &&
+    getCombinedStressCandidates().length > 0
   ) {
     return generateCombinedStressProblem();
+  }
+
+  if (difficulty === "intermediate" || difficulty === "advanced") {
+    const r = Math.random();
+    if (r < shearStressRate) {
+      const tauGens: (() => BeamProblem | null)[] = [
+        generateShearStressRectProblem,
+        generateShearStressHProblem,
+      ];
+      const shuffled = [...tauGens].sort(() => Math.random() - 0.5);
+      for (const gen of shuffled) {
+        const p = gen();
+        if (p != null) return p;
+      }
+    }
+    if (r < shearStressRate + shortColumnRate) {
+      const generators: (() => BeamProblem | null)[] = [
+        generateShortColumnMaxCompressionProblem,
+        generateShortColumnCoreLimitProblem,
+      ];
+      const shuffled = [...generators].sort(() => Math.random() - 0.5);
+      for (const gen of shuffled) {
+        const p = gen();
+        if (p != null) return p;
+      }
+    }
   }
 
   const candidates = getBendingStressCandidates();

@@ -13,9 +13,9 @@ import {
 import type { BeamProblem, BucklingSupportType, Difficulty, ProblemCategory } from "../types";
 import { ColumnDiagram } from "../components/ColumnDiagram";
 import { BeamDiagram } from "../components/BeamDiagram";
-import { BeamMDiagram, isBeamProblemWithDiagram } from "../components/BeamMDiagram";
+import { BeamMDiagram, BMDChoiceOption, isBeamProblemWithDiagram } from "../components/BeamMDiagram";
 import { BeamQDiagram } from "../components/BeamQDiagram";
-import { DragonMascot } from "../components/DragonMascot";
+import { ShortColumnDiagram } from "../components/ShortColumnDiagram";
 import { SectionDiagram } from "../components/SectionDiagram";
 import { TrussDiagram } from "../components/TrussDiagram";
 import { FrameDiagram } from "../components/FrameDiagram";
@@ -92,15 +92,21 @@ export function HomeScreen() {
                 problem.target === "frame_M_left" ||
                 problem.target === "frame_M_right"
               ? "kN·m"
-              : problem.target === "Va" || problem.target === "Vb" || problem.target === "Q_at_x"
+              : problem.target === "Va" ||
+                  problem.target === "Vb" ||
+                  problem.target === "frame_H_left" ||
+                  problem.target === "frame_V_B" ||
+                  problem.target === "Q_at_x"
                 ? "kN"
                 : problem.target === "Z"
                   ? "mm³"
                   : problem.target === "I" || problem.target === "I_centroid"
                     ? "mm⁴"
-                    : problem.target === "sigma"
+                    : problem.target === "sigma" || problem.target === "tau"
                       ? "N/mm²"
-                      : problem.target === "x_g" || problem.target === "y_g"
+                      : problem.target === "x_g" ||
+                          problem.target === "y_g" ||
+                          problem.target === "eccentric_e"
                         ? "mm"
                         : "";
 
@@ -134,16 +140,26 @@ export function HomeScreen() {
                         ? "I"
                         : problem.target === "sigma"
                           ? "σ"
+                          : problem.target === "tau"
+                            ? "τ"
                           : problem.target === "x_g"
                             ? "x_g"
                             : problem.target === "y_g"
                               ? "y_g"
-                              : problem.problemCategory === "frame" &&
-                                  (problem.target === "frame_M_left" ||
-                                    problem.target === "frame_M_right" ||
-                                    problem.target === "frame_M_beam")
-                                ? "M"
-                                : "";
+                              : problem.target === "eccentric_e"
+                                ? "e"
+                                : problem.problemCategory === "frame" &&
+                                    (problem.target === "frame_M_left" ||
+                                      problem.target === "frame_M_right" ||
+                                      problem.target === "frame_M_beam")
+                                  ? "M"
+                                  : problem.target === "frame_H_left"
+                                    ? "H_A"
+                                    : problem.target === "frame_V_B"
+                                      ? "V_B"
+                                      : problem.target === "BMD_shape"
+                                        ? "BMD"
+                                        : "";
 
   const handleSelect = (value: number) => {
     if (problem === null || isCorrect !== null) return;
@@ -776,25 +792,33 @@ export function HomeScreen() {
                       );
                     })()
                   ) : problem.problemCategory === "bending-stress" ? (
-                    <>
-                      <BeamDiagram problem={problem} />
-                      {problem.sectionBmm != null &&
-                      problem.sectionHmm != null ? (
-                        <View style={{ marginTop: 16 }}>
-                          <SectionDiagram
-                            b={problem.sectionBmm}
-                            h={problem.sectionHmm}
-                            shape={problem.sectionShape}
-                            bInner={problem.sectionBInner}
-                            hInner={problem.sectionHInner}
-                            b1={problem.sectionB1mm}
-                            b2={problem.sectionB2mm}
-                            tf={problem.sectionTfMm}
-                            tw={problem.sectionTwMm}
-                          />
-                        </View>
-                      ) : null}
-                    </>
+                    problem.shortColumnMode != null && problem.sectionBmm != null && problem.sectionHmm != null ? (
+                      <ShortColumnDiagram
+                        b={problem.sectionBmm}
+                        h={problem.sectionHmm}
+                        P={problem.type === "concentrated" ? problem.P : 0}
+                        mode={problem.shortColumnMode}
+                      />
+                    ) : (
+                      <>
+                        <BeamDiagram problem={problem} />
+                        {problem.sectionBmm != null && problem.sectionHmm != null ? (
+                          <View style={{ marginTop: 16 }}>
+                            <SectionDiagram
+                              b={problem.sectionBmm}
+                              h={problem.sectionHmm}
+                              shape={problem.sectionShape}
+                              bInner={problem.sectionBInner}
+                              hInner={problem.sectionHInner}
+                              b1={problem.sectionB1mm}
+                              b2={problem.sectionB2mm}
+                              tf={problem.sectionTfMm}
+                              tw={problem.sectionTwMm}
+                            />
+                          </View>
+                        ) : null}
+                      </>
+                    )
                   ) : problem.problemCategory === "buckling" &&
                     problem.bucklingSupportType != null ? (
                     <ColumnDiagram
@@ -949,9 +973,18 @@ export function HomeScreen() {
                           : `b = ${problem.sectionBmm} mm, h = ${problem.sectionHmm} mm`
                     : problem.problemCategory === "bending-stress" &&
                         problem.type === "concentrated"
-                      ? problem.axialForceKN != null
-                        ? `N = ${problem.axialForceKN} kN, P = ${problem.P} kN, L = ${problem.L} m, a = ${problem.a} m, b = ${problem.b} m / 断面: b = ${problem.sectionBmm} mm, h = ${problem.sectionHmm} mm`
-                        : `P = ${problem.P} kN, L = ${problem.L} m, a = ${problem.a} m, b = ${problem.b} m / 断面: b = ${problem.sectionBmm} mm, h = ${problem.sectionHmm} mm`
+                      ? problem.shortColumnMode != null
+                        ? problem.eccentricEMm != null
+                          ? `短柱: P = ${problem.P} kN, b = ${problem.sectionBmm} mm, h = ${problem.sectionHmm} mm, e = ${problem.eccentricEMm} mm`
+                          : `短柱: P = ${problem.P} kN, b = ${problem.sectionBmm} mm, h = ${problem.sectionHmm} mm`
+                        : problem.axialForceKN != null
+                          ? `N = ${problem.axialForceKN} kN, P = ${problem.P} kN, L = ${problem.L} m, a = ${problem.a} m, b = ${problem.b} m / 断面: b = ${problem.sectionBmm} mm, h = ${problem.sectionHmm} mm`
+                          : problem.target === "tau" &&
+                              problem.sectionShape === "H-shape" &&
+                              problem.sectionTfMm != null &&
+                              problem.sectionTwMm != null
+                            ? `P = ${problem.P} kN, L = ${problem.L} m, a = ${problem.a} m, b = ${problem.b} m / H形: b = ${problem.sectionBmm} mm, h = ${problem.sectionHmm} mm, t_f = ${problem.sectionTfMm} mm, t_w = ${problem.sectionTwMm} mm`
+                            : `P = ${problem.P} kN, L = ${problem.L} m, a = ${problem.a} m, b = ${problem.b} m / 断面: b = ${problem.sectionBmm} mm, h = ${problem.sectionHmm} mm`
                       : problem.problemCategory === "buckling" &&
                           problem.bucklingSupportType != null
                         ? (() => {
@@ -1016,15 +1049,15 @@ export function HomeScreen() {
                   </Text>
                   {!isCorrect && problem && (
                     <Text style={styles.correctAnswer}>
-                      正解: {formatValue(problem.answer)} {unit}
+                      正解:{" "}
+                      {problem.target === "BMD_shape"
+                        ? ["①", "②", "③", "④"][problem.answer]
+                        : `${formatValue(problem.answer)} ${unit}`}
                     </Text>
                   )}
                   {problem?.explanation != null && problem.explanation.length > 0 && (
                     <View style={styles.explanationBox}>
-                      <View style={styles.explanationMascotRow}>
-                        <DragonMascot />
-                        <Text style={styles.explanationTitle}>解説</Text>
-                      </View>
+                      <Text style={styles.explanationTitle}>解説</Text>
                       <Text style={styles.explanationText}>{problem.explanation}</Text>
                     </View>
                   )}
@@ -1040,18 +1073,39 @@ export function HomeScreen() {
               )}
 
               <View style={styles.options}>
-                {problem?.choices.map((choice, index) => (
-                  <TouchableOpacity
-                    key={`${choice}-${index}`}
-                    style={styles.optionButton}
-                    onPress={() => handleSelect(choice)}
-                    disabled={isCorrect !== null}
-                  >
-                    <Text style={styles.optionText}>
-                      {formatValue(choice)} {unit}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {problem?.target === "BMD_shape" &&
+                problem.bmdShapeVariants != null &&
+                problem.bmdShapeVariants.length === 4 ? (
+                  <View style={bmdChoiceGridStyles.grid}>
+                    {[0, 1, 2, 3].map((index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={bmdChoiceGridStyles.cell}
+                        onPress={() => handleSelect(index)}
+                        disabled={isCorrect !== null}
+                      >
+                        <BMDChoiceOption
+                          problem={problem}
+                          variant={problem.bmdShapeVariants![index]}
+                          compact
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : (
+                  problem?.choices.map((choice, index) => (
+                    <TouchableOpacity
+                      key={`${choice}-${index}`}
+                      style={styles.optionButton}
+                      onPress={() => handleSelect(choice)}
+                      disabled={isCorrect !== null}
+                    >
+                      <Text style={styles.optionText}>
+                        {formatValue(choice)} {unit}
+                      </Text>
+                    </TouchableOpacity>
+                  ))
+                )}
               </View>
 
               {activePage === "diagnostic" && !hasActiveDiagnosticSession ? (
@@ -1079,6 +1133,26 @@ export function HomeScreen() {
     </ScrollView>
   );
 }
+
+const bmdChoiceGridStyles = StyleSheet.create({
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 12,
+    width: "100%",
+  },
+  cell: {
+    width: "45%",
+    minWidth: 120,
+    alignItems: "center",
+    padding: 8,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+});
 
 const styles = StyleSheet.create({
   scroll: {
@@ -1218,11 +1292,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#bbdefb",
     alignSelf: "stretch",
-  },
-  explanationMascotRow: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
   },
   explanationTitle: {
     fontSize: 14,

@@ -50,9 +50,9 @@ export function SectionDiagram({ b, h, shape, bInner, hInner, b1, b2, tf, tw }: 
   const lshape = shape === "L-shape" && b1 != null && b2 != null && b1 > 0 && b2 > 0 && b === b1 + b2;
   const hshape =
     shape === "H-shape" && tf != null && tw != null && tf > 0 && tw > 0 && h > 2 * tf && !hollow && !lshape;
-  const tshape =
+  const isTShape =
     shape === "T-shape" && tf != null && tw != null && tf > 0 && tw > 0 && h > tf && !hollow && !lshape;
-  const svgHeight = RECT_HEIGHT + MARGIN * 2 + 24 + (tshape ? 32 : 0);
+  const svgHeight = RECT_HEIGHT + MARGIN * 2 + 24 + (isTShape ? 32 : 0);
   const innerW = hollow ? (bInner! / b) * RECT_WIDTH : 0;
   const innerH = hollow ? (hInner! / h) * RECT_HEIGHT : 0;
   const innerX = hollow ? xLeft + (RECT_WIDTH - innerW) / 2 : 0;
@@ -68,12 +68,12 @@ export function SectionDiagram({ b, h, shape, bInner, hInner, b1, b2, tf, tw }: 
   const twPx = hshape && tw != null ? (tw / b) * RECT_WIDTH : 0;
   const webLeft = hshape ? xLeft + (RECT_WIDTH - twPx) / 2 : 0;
 
-  const tfPxT = tshape && tf != null ? (tf / h) * RECT_HEIGHT : 0;
-  const hwPxT = tshape && tf != null ? ((h - tf) / h) * RECT_HEIGHT : 0;
-  const twPxT = tshape && tw != null ? (tw / b) * RECT_WIDTH : 0;
-  const webLeftT = tshape ? xLeft + (RECT_WIDTH - twPxT) / 2 : 0;
+  const tfPxT = isTShape && tf != null ? (tf / h) * RECT_HEIGHT : 0;
+  const hwPxT = isTShape && tf != null ? ((h - tf) / h) * RECT_HEIGHT : 0;
+  const twPxT = isTShape && tw != null ? (tw / b) * RECT_WIDTH : 0;
+  const webLeftT = isTShape ? xLeft + (RECT_WIDTH - twPxT) / 2 : 0;
   const y_g_mm_T =
-    tshape && tf != null && tw != null
+    isTShape && tf != null && tw != null
       ? (() => {
           const hw = h - tf;
           const Af = b * tf;
@@ -84,10 +84,10 @@ export function SectionDiagram({ b, h, shape, bInner, hInner, b1, b2, tf, tw }: 
           return (Af * yF + Aw * yW) / A;
         })()
       : 0;
-  const y_g_px_T = tshape ? yTop + (y_g_mm_T / h) * RECT_HEIGHT : 0;
+  const y_g_px_T = isTShape ? yTop + (y_g_mm_T / h) * RECT_HEIGHT : 0;
 
-  const svgViewBox = tshape ? `-40 0 ${svgWidth + 40} ${svgHeight}` : undefined;
-  const svgWidthActual = tshape ? svgWidth + 40 : svgWidth;
+  const svgViewBox = isTShape ? `-40 0 ${svgWidth + 40} ${svgHeight}` : undefined;
+  const svgWidthActual = isTShape ? svgWidth + 40 : svgWidth;
 
   return (
     <View style={{ alignItems: "center" }}>
@@ -99,9 +99,9 @@ export function SectionDiagram({ b, h, shape, bInner, hInner, b1, b2, tf, tw }: 
             <Line x1={xLeft + x_g_px} y1={yTop - 6} x2={xLeft + x_g_px} y2={yBottom + 6} stroke="#c62828" strokeWidth={1.5} strokeDasharray="4,3" />
             <Text x={xLeft + x_g_px} y={yTop - 10} fill="#c62828" fontSize={10} textAnchor="middle">x_g</Text>
             <Line x1={xLeft} y1={yBottom + dimOffset} x2={xLeft + w1} y2={yBottom + dimOffset} stroke="#333" strokeWidth={1} strokeDasharray="4,2" />
-            <Text x={xLeft + w1 / 2} y={yBottom + dimOffset + 14} fill="#333" fontSize={11} textAnchor="middle">b1 = {b1} mm</Text>
+            <Text x={xLeft + w1 - 4} y={yBottom + dimOffset + 14} fill="#333" fontSize={11} textAnchor="end">b1 = {b1} mm</Text>
             <Line x1={xLeft + w1} y1={yBottom + dimOffset} x2={xRight} y2={yBottom + dimOffset} stroke="#333" strokeWidth={1} strokeDasharray="4,2" />
-            <Text x={xLeft + w1 + w2 / 2} y={yBottom + dimOffset + 14} fill="#333" fontSize={11} textAnchor="middle">b2 = {b2} mm</Text>
+            <Text x={xLeft + w1 + 4} y={yBottom + dimOffset + 14} fill="#333" fontSize={11} textAnchor="start">b2 = {b2} mm</Text>
             <Line x1={xRight + dimOffset} y1={yTop} x2={xRight + dimOffset} y2={yBottom} stroke="#333" strokeWidth={1} strokeDasharray="4,2" />
             <Text x={xRight + dimOffset + 8} y={cy} fill="#333" fontSize={12} textAnchor="start">h = {h} mm</Text>
           </>
@@ -121,7 +121,7 @@ export function SectionDiagram({ b, h, shape, bInner, hInner, b1, b2, tf, tw }: 
             <Line x1={xRight + dimOffset - dimTick / 2} y1={yBottom} x2={xRight + dimOffset + dimTick / 2} y2={yBottom} stroke="#333" strokeWidth={1} />
             <Text x={xRight + dimOffset + 8} y={cy} fill="#333" fontSize={12} textAnchor="start">h = {h} mm</Text>
           </>
-        ) : tshape ? (
+        ) : isTShape ? (
           <>
             {/* フランジ（上部） */}
             <Rect x={xLeft} y={yTop} width={RECT_WIDTH} height={tfPxT} fill="#fafafa" stroke="#333" strokeWidth={2} />
